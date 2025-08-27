@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tarea</title>
+  <link rel="stylesheet" href="/static/style.css"/>
+  <script>
+    function onMemeChange(val) {
+      const hb = document.getElementById('hate-block');
+      const h1 = document.getElementById('has_hate_1');
+      const h0 = document.getElementById('has_hate_0');
+      if (val === '1') { hb.style.display = 'block'; if(h1) h1.required = true; if(h0) h0.required = true; }
+      else { hb.style.display = 'none'; if(h1) h1.required = false; if(h0) h0.required = false; }
+    }
+    // atajos de teclado: 1/2 para meme, Y/N para odio, Enter para enviar
+    document.addEventListener('keyup', (e) => {
+      if (e.key === '1') { const el = document.getElementById('is_meme_1'); if(el){ el.click(); onMemeChange('1'); } }
+      if (e.key === '2') { const el = document.getElementById('is_meme_0'); if(el){ el.click(); onMemeChange('0'); } }
+      if (e.key.toLowerCase() === 'y') { const h=document.getElementById('has_hate_1'); if(h) h.click(); }
+      if (e.key.toLowerCase() === 'n') { const h=document.getElementById('has_hate_0'); if(h) h.click(); }
+      if (e.key === 'Enter') { const b=document.getElementById('submitBtn'); if(b) b.click(); }
+    });
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h2>Imagen {{ id }}</h2>
+
+    <div class="image-box">
+      <!-- usamos el proxy del backend -->
+      <img src="/img/{{ id }}" alt="imagen a etiquetar" loading="eager" decoding="async"
+           onerror="this.outerHTML='<p>No se pudo cargar. <a href=&quot;/img/{{ id }}&quot; target=&quot;_blank&quot;>Abrir directo</a></p>'">
+    </div>
+
+    <form method="POST" action="/submit">
+      <input type="hidden" name="image_id" value="{{ id }}"/>
+
+      <div class="question">
+        <label>¿Es meme?</label>
+        <div class="options">
+          <label><input type="radio" id="is_meme_1" name="is_meme" value="1" onchange="onMemeChange('1')" required/> Sí (1)</label>
+          <label><input type="radio" id="is_meme_0" name="is_meme" value="0" onchange="onMemeChange('0')" required/> No (2)</label>
+        </div>
+      </div>
+
+      <div id="hate-block" class="question" style="display:none">
+        <label>¿Tiene discurso de odio?</label>
+        <div class="options">
+          <label><input type="radio" id="has_hate_1" name="has_hate" value="1"/> Sí (Y)</label>
+          <label><input type="radio" id="has_hate_0" name="has_hate" value="0"/> No (N)</label>
+        </div>
+      </div>
+
+      <button class="btn" id="submitBtn" type="submit">Enviar (Enter)</button>
+      <button class="btn" type="button" onclick="window.location.href='/done'">Fin</button>
+    </form>
+  </div>
+</body>
+</html>
