@@ -13,13 +13,18 @@
       if (val === '1') { hb.style.display = 'block'; if(h1) h1.required = true; if(h0) h0.required = true; }
       else { hb.style.display = 'none'; if(h1) h1.required = false; if(h0) h0.required = false; }
     }
-    // atajos de teclado: 1/2 para meme, Y/N para odio, Enter para enviar
+    // Atajos de teclado: 1-7 para meme y odio, Enter para enviar
     document.addEventListener('keyup', (e) => {
-      if (e.key === '1') { const el = document.getElementById('is_meme_1'); if(el){ el.click(); onMemeChange('1'); } }
-      if (e.key === '2') { const el = document.getElementById('is_meme_0'); if(el){ el.click(); onMemeChange('0'); } }
-      if (e.key.toLowerCase() === 'y') { const h=document.getElementById('has_hate_1'); if(h) h.click(); }
-      if (e.key.toLowerCase() === 'n') { const h=document.getElementById('has_hate_0'); if(h) h.click(); }
-      if (e.key === 'Enter') { const b=document.getElementById('submitBtn'); if(b) b.click(); }
+      if ('1234567'.includes(e.key)) {
+        const meme = document.getElementById('is_meme_' + e.key);
+        if(meme) meme.click();
+        const hate = document.getElementById('has_hate_' + e.key);
+        if(hate) hate.click();
+      }
+      if (e.key === 'Enter') {
+        const b=document.getElementById('submitBtn');
+        if(b) b.click();
+      }
     });
   </script>
 </head>
@@ -37,18 +42,46 @@
       <input type="hidden" name="image_id" value="{{ id }}"/>
 
       <div class="question">
-        <label>¿Es meme?</label>
-        <div class="options">
-          <label><input type="radio" id="is_meme_1" name="is_meme" value="1" onchange="onMemeChange('1')" required/> Sí (1)</label>
-          <label><input type="radio" id="is_meme_0" name="is_meme" value="0" onchange="onMemeChange('0')" required/> No (2)</label>
+        <label style="font-size:1.2em;font-weight:bold">¿Qué tanto te parece que es un meme?</label>
+    <div class="options" style="display:flex;flex-direction:column;align-items:flex-start;">
+          <div style="display:flex;gap:24px;margin-bottom:2px;">
+            <span style="font-size:0.95em;width:2em;text-align:center;white-space:nowrap;">No es Meme</span>
+            <span style="font-size:0.95em;width:2em;text-align:center;"></span>
+            <span style="font-size:0.95em;width:2em;text-align:center;"></span>
+            <span style="font-size:0.95em;width:2em;text-align:center;">Dudoso</span>
+            <span style="font-size:0.95em;width:2em;text-align:center;"></span>
+            <span style="font-size:0.95em;width:2em;text-align:center;"></span>
+            <span style="font-size:0.95em;width:2em;text-align:center;white-space:nowrap;">Es Meme</span>
+          </div>
+          <div style="display:flex;gap:24px;">
+            {% for i in range(1,8) %}
+            <label style="font-size:1.3em;padding:0 0 8px 0;display:flex;flex-direction:column;align-items:center;">
+              <input type="radio" name="is_meme" id="is_meme_{{i}}" value="{{i}}" required style="width:2em;height:2em;vertical-align:middle;"/> {{i}}
+            </label>
+            {% endfor %}
+          </div>
         </div>
       </div>
 
-      <div id="hate-block" class="question" style="display:none">
-        <label>¿Tiene discurso de odio?</label>
-        <div class="options">
-          <label><input type="radio" id="has_hate_1" name="has_hate" value="1"/> Sí (Y)</label>
-          <label><input type="radio" id="has_hate_0" name="has_hate" value="0"/> No (N)</label>
+      <div class="question">
+        <label style="font-size:1.2em;font-weight:bold">¿Creés que contiene discurso de odio?</label>
+    <div class="options" style="display:flex;flex-direction:column;align-items:flex-start;">
+          <div style="display:flex;gap:24px;margin-bottom:2px;">
+            <span style="font-size:0.95em;width:2em;text-align:center;white-space:nowrap;">No Contiene</span>
+            <span style="font-size:0.95em;width:2em;text-align:center;"></span>
+            <span style="font-size:0.95em;width:2em;text-align:center;"></span>
+            <span style="font-size:0.95em;width:2em;text-align:center;">Dudoso</span>
+            <span style="font-size:0.95em;width:2em;text-align:center;"></span>
+            <span style="font-size:0.95em;width:2em;text-align:center;"></span>
+            <span style="font-size:0.95em;width:2em;text-align:center;white-space:nowrap;">Sí Contiene</span>
+          </div>
+          <div style="display:flex;gap:24px;">
+            {% for i in range(1,8) %}
+            <label style="font-size:1.3em;padding:0 0 8px 0;display:flex;flex-direction:column;align-items:center;">
+              <input type="radio" name="has_hate" id="has_hate_{{i}}" value="{{i}}" required style="width:2em;height:2em;vertical-align:middle;"/> {{i}}
+            </label>
+            {% endfor %}
+          </div>
         </div>
       </div>
 

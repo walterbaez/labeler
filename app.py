@@ -93,10 +93,15 @@ def submit(
     is_meme: int = Form(...),
     has_hate: Optional[int] = Form(None),
 ):
-    if int(is_meme) == 0:
-        has_hate = 0
-    elif has_hate is None:
-        return PlainTextResponse("Falta campo 'has_hate'", status_code=400)
+    try:
+        meme_val = int(is_meme)
+        hate_val = int(has_hate)
+    except (TypeError, ValueError):
+        return PlainTextResponse("Las respuestas deben ser números entre 1 y 7", status_code=400)
+    if not (1 <= meme_val <= 7):
+        return PlainTextResponse("El puntaje de meme debe estar entre 1 y 7", status_code=400)
+    if not (1 <= hate_val <= 7):
+        return PlainTextResponse("El puntaje de odio debe estar entre 1 y 7", status_code=400)
 
     annotator_id = request.cookies.get("annotator_id") or "unknown"
     conn = get_db()
@@ -111,7 +116,7 @@ def submit(
                    submitted_at=%s
              WHERE id=%s
             """,
-            (int(is_meme), int(has_hate), annotator_id, datetime.utcnow().isoformat(), image_id),
+            (meme_val, hate_val, annotator_id, datetime.utcnow().isoformat(), image_id),
         )
         conn.commit()
     conn.close()
@@ -205,8 +210,7 @@ def done(request: Request):
 
 # endpoint: liberar asignaciones viejas (DEFAULT = 20 minutos)
 @app.post("/admin/release_stale")
-def release_stale(minutes: int = 20):
-    cutoff = (datetime.utcnow() - timedelta(minutes=minutes)).isoformat()
+def release_stale():
     conn = get_db()
     with conn.cursor() as cur:
         cur.execute(
@@ -215,15 +219,13 @@ def release_stale(minutes: int = 20):
                SET assigned_at = NULL,
                    assigned_to = NULL
              WHERE labeled = 0
-               AND assigned_at IS NOT NULL
-               AND assigned_at < %s
-            """,
-            (cutoff,)
+               AND assigned_to IS NOT NULL
+            """
         )
         released = cur.rowcount
         conn.commit()
     conn.close()
-    return {"released": released, "cutoff": cutoff, "minutes": minutes}
+    return {"released": released}
 
 
 @app.get("/admin", response_class=HTMLResponse)
@@ -249,19 +251,16 @@ def admin(request: Request):
                     <tr><th>No asignadas</th><td>{total - assigned}</td></tr>
                 </table>
                 <p>{WORKERS_NOTE}</p>
-                <h3 style='margin-top:24px'>Liberar asignaciones viejas</h3>
-                <form onsubmit="event.preventDefault();
-                    const mins = document.getElementById('mins').value || 20;
-                    fetch('/admin/release_stale?minutes=' + mins, {{method:'POST'}})
-                        .then(r=>r.json())
-                        .then(d=>{{ alert('Liberadas: ' + d.released + '\nCorte: ' + d.cutoff); location.reload(); }})
-                        .catch(()=>alert('Error liberando'));
-                " style='margin-top:8px'>
-                    <label>Re-liberar imágenes no etiquetadas asignadas hace &gt; 
-                        <input id='mins' type='number' value='20' min='1' style='width:80px'> min
-                    </label>
-                    <button class='btn' type='submit' style='margin-left:12px'>Liberar</button>
-                </form>
+                        <h3 style='margin-top:24px'>Liberar asignaciones viejas</h3>
+                        <form onsubmit="event.preventDefault();
+                            fetch('/admin/release_stale', {{method:'POST'}})
+                                .then(r=>r.json())
+                                .then(d=>{{ alert('Liberadas: ' + d.released); location.reload(); }})
+                                .catch(()=>alert('Error liberando'));
+                        " style='margin-top:8px'>
+                            <label>Re-liberar todas las imágenes asignadas y no etiquetadas</label>
+                            <button class='btn' type='submit' style='margin-left:12px'>Liberar</button>
+                        </form>
             </div>
         </div>
         </body></html>
