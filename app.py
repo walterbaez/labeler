@@ -4,7 +4,7 @@ from fastapi import HTTPException
 import re
 import os
 import uuid
-import psycopg2
+import psycopg
 from datetime import datetime
 from typing import Optional
 from datetime import timedelta
@@ -23,7 +23,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 def get_db():
-    conn = psycopg2.connect(DB_URL)
+    conn = psycopg.connect(DB_URL)
     return conn
 
 def get_or_create_annotator_id(request: Request, response: Response) -> str:
@@ -55,7 +55,7 @@ def assign_one_random(conn, annotator_id: str):
                 img_id, url = row
                 cur.execute(
                     "UPDATE images SET assigned_to=%s, assigned_at=%s WHERE id=%s AND assigned_at IS NULL",
-                    (annotator_id, datetime.utcnow().isoformat(), img_id),
+                    [annotator_id, datetime.utcnow().isoformat(), img_id],
                 )
                 if cur.rowcount == 1:
                     conn.commit()
@@ -116,7 +116,7 @@ def submit(
                    submitted_at=%s
              WHERE id=%s
             """,
-            (meme_val, hate_val, annotator_id, datetime.utcnow().isoformat(), image_id),
+            [meme_val, hate_val, annotator_id, datetime.utcnow().isoformat(), image_id],
         )
         conn.commit()
     conn.close()
@@ -155,7 +155,7 @@ def get_image(image_id: str):
     # 1) Buscar la URL de esa imagen en la base
     conn = get_db()
     with conn.cursor() as cur:
-        cur.execute("SELECT url FROM images WHERE id=%s", (image_id,))
+        cur.execute("SELECT url FROM images WHERE id=%s", [image_id])
         row = cur.fetchone()
     conn.close()
     if not row:
@@ -230,16 +230,16 @@ def release_stale():
 
 @app.get("/admin", response_class=HTMLResponse)
 def admin(request: Request):
-        conn = get_db()
-        with conn.cursor() as cur:
-                cur.execute("SELECT COUNT(*) FROM images")
-                total = cur.fetchone()[0]
-                cur.execute("SELECT COUNT(*) FROM images WHERE labeled=1")
-                labeled = cur.fetchone()[0]
-                cur.execute("SELECT COUNT(*) FROM images WHERE assigned_at IS NOT NULL")
-                assigned = cur.fetchone()[0]
-        conn.close()
-        html = f"""
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM images")
+        total = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM images WHERE labeled=1")
+        labeled = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM images WHERE assigned_at IS NOT NULL")
+        assigned = cur.fetchone()[0]
+    conn.close()
+    html = f"""
         <html><head><link rel='stylesheet' href='/static/style.css'></head><body>
         <div class='container'>
             <h2>Progreso</h2>
@@ -265,4 +265,4 @@ def admin(request: Request):
         </div>
         </body></html>
         """
-        return HTMLResponse(html)
+    return HTMLResponse(html)
