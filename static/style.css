@@ -1,3 +1,67 @@
+/* Layout base */
+:root { --gap: 16px; }
+body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
+.container { max-width: 680px; margin: 0 auto; padding: 16px; }
+
+/* Imagen: que nunca desborde y se vea completa */
+.image-box { margin-bottom: var(--gap); }
+.image-box img{
+	display:block;
+	width:100%;
+	max-height: 45vh;
+	object-fit: contain;
+	border-radius: 10px;
+	background:#f5f5f5;
+}
+
+/* Preguntas */
+.question { margin: 18px 0; }
+.question label { display:block; margin-bottom: 8px; }
+
+/* Escala 1–7 en grilla, centrada */
+.scale-grid{
+	display:grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	gap: 14px;
+	align-items:center;
+	justify-items:center;
+}
+
+/* Cada opción (radio + número) vertical y clickeable */
+.scale-option{
+	display:flex;
+	flex-direction:column;
+	align-items:center;
+	gap:6px;
+	min-width: 40px;
+}
+.scale-option input[type="radio"]{
+	width: 28px; height: 28px;
+}
+
+/* Etiquetas de extremos (No es / Dudoso / Es) en una fila */
+.scale-anchors{
+	display:grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	gap:14px;
+	font-size: 0.92em;
+	margin-bottom: 6px;
+}
+.scale-anchors span{ text-align:center; white-space:nowrap; }
+
+/* Botones */
+.btn{ padding:10px 14px; border:none; border-radius:10px; background:#111; color:#fff; }
+.btn + .btn{ margin-left:10px; }
+
+/* Ajustes para pantallas chicas */
+@media (max-width: 480px){
+	.container{ padding: 12px; }
+	.image-box img{ max-height: 38vh; }
+	.scale-grid{ gap:10px; }
+	.scale-option{ min-width:36px; gap:4px; }
+	.scale-option input[type="radio"]{ width:24px; height:24px; }
+	.scale-anchors{ font-size: 0.85em; gap:10px; }
+}
 body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#fff; color:#111; margin:0; }
 .container { max-width: 720px; margin: 40px auto; padding: 0 16px; }
 h1,h2 { margin: 0 0 16px; }

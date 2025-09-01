@@ -34,28 +34,28 @@
 
     <div class="image-box">
       <!-- usamos el proxy del backend -->
-      <img src="/img/{{ id }}" alt="imagen a etiquetar" loading="eager" decoding="async"
-           onerror="this.outerHTML='<p>No se pudo cargar. <a href=&quot;/img/{{ id }}&quot; target=&quot;_blank&quot;>Abrir directo</a></p>'">
+  <img src="/img/{{ id }}" alt="imagen a etiquetar" loading="eager" decoding="async"
+       onerror="this.outerHTML='<p>No se pudo cargar. <a href=&quot;/img/{{ id }}&quot; target=&quot;_blank&quot;>Abrir directo</a></p>'">
     </div>
 
     <form method="POST" action="/submit">
       <input type="hidden" name="image_id" value="{{ id }}"/>
 
       <div class="question">
-        <label style="font-size:1.2em;font-weight:bold">¿Qué tanto te parece que es un meme?</label>
-    <div class="options" style="display:flex;flex-direction:column;align-items:flex-start;">
+          <label>¿Qué tanto te parece que es un meme?</label>
+        <div class="scale-anchors">
           <div style="display:flex;gap:24px;margin-bottom:2px;">
-            <span style="font-size:0.95em;width:2em;text-align:center;white-space:nowrap;">No es Meme</span>
-            <span style="font-size:0.95em;width:2em;text-align:center;"></span>
-            <span style="font-size:0.95em;width:2em;text-align:center;"></span>
-            <span style="font-size:0.95em;width:2em;text-align:center;">Dudoso</span>
-            <span style="font-size:0.95em;width:2em;text-align:center;"></span>
-            <span style="font-size:0.95em;width:2em;text-align:center;"></span>
-            <span style="font-size:0.95em;width:2em;text-align:center;white-space:nowrap;">Es Meme</span>
+            <span style="font-size:0.88em;width:4.2em;text-align:center;white-space:nowrap;">No es Meme</span>
+            <span style="font-size:0.88em;width:4.2em;text-align:center;"></span>
+            <span style="font-size:0.88em;width:4.2em;text-align:center;"></span>
+            <span style="font-size:0.88em;width:4.2em;text-align:center;">Dudoso</span>
+            <span style="font-size:0.88em;width:4.2em;text-align:center;"></span>
+            <span style="font-size:0.88em;width:4.2em;text-align:center;"></span>
+            <span style="font-size:0.88em;width:4.2em;text-align:center;white-space:nowrap;">Es Meme</span>
           </div>
           <div style="display:flex;gap:24px;">
             {% for i in range(1,8) %}
-            <label style="font-size:1.3em;padding:0 0 8px 0;display:flex;flex-direction:column;align-items:center;">
+              <label class="scale-option">
               <input type="radio" name="is_meme" id="is_meme_{{i}}" value="{{i}}" required style="width:2em;height:2em;vertical-align:middle;"/> {{i}}
             </label>
             {% endfor %}
@@ -64,20 +64,20 @@
       </div>
 
       <div class="question">
-        <label style="font-size:1.2em;font-weight:bold">¿Creés que contiene discurso de odio?</label>
-    <div class="options" style="display:flex;flex-direction:column;align-items:flex-start;">
+          <label>¿Creés que contiene discurso de odio?</label>
+        <div class="scale-anchors">
           <div style="display:flex;gap:24px;margin-bottom:2px;">
-            <span style="font-size:0.95em;width:2em;text-align:center;white-space:nowrap;">No Contiene</span>
-            <span style="font-size:0.95em;width:2em;text-align:center;"></span>
-            <span style="font-size:0.95em;width:2em;text-align:center;"></span>
-            <span style="font-size:0.95em;width:2em;text-align:center;">Dudoso</span>
-            <span style="font-size:0.95em;width:2em;text-align:center;"></span>
-            <span style="font-size:0.95em;width:2em;text-align:center;"></span>
-            <span style="font-size:0.95em;width:2em;text-align:center;white-space:nowrap;">Sí, Contiene</span>
+            <span style="font-size:0.88em;width:4.2em;text-align:center;white-space:nowrap;">No Contiene</span>
+            <span style="font-size:0.88em;width:4.2em;text-align:center;"></span>
+            <span style="font-size:0.88em;width:4.2em;text-align:center;"></span>
+            <span style="font-size:0.88em;width:4.2em;text-align:center;">Dudoso</span>
+            <span style="font-size:0.88em;width:4.2em;text-align:center;"></span>
+            <span style="font-size:0.88em;width:4.2em;text-align:center;"></span>
+            <span style="font-size:0.88em;width:4.2em;text-align:center;white-space:nowrap;">Sí Contiene</span>
           </div>
           <div style="display:flex;gap:24px;">
             {% for i in range(1,8) %}
-            <label style="font-size:1.3em;padding:0 0 8px 0;display:flex;flex-direction:column;align-items:center;">
+              <label class="scale-option">
               <input type="radio" name="has_hate" id="has_hate_{{i}}" value="{{i}}" required style="width:2em;height:2em;vertical-align:middle;"/> {{i}}
             </label>
             {% endfor %}
