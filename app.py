@@ -23,7 +23,24 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 def get_db():
-    conn = psycopg.connect(DB_URL)
+    DB_URL = os.environ.get("DATABASE_URL")
+    if DB_URL is None:
+        raise Exception("DATABASE_URL no está configurada en las variables de entorno")
+    print("Intentando conectar a la base de datos con URL:", DB_URL)
+    try:
+        conn = psycopg.connect(
+            DB_URL,
+            connect_timeout=10,
+            keepalives=1,
+            keepalives_idle=30,
+            keepalives_interval=10,
+            keepalives_count=5
+        )
+        print(f"Conexión exitosa!")
+        return conn
+    except Exception as e:
+        print(f"Error al conectar a la base de datos: {str(e)}")
+        raise
     return conn
 
 def get_or_create_annotator_id(request: Request, response: Response) -> str:
@@ -55,7 +72,7 @@ def assign_one_random(conn, annotator_id: str):
                 img_id, url = row
                 cur.execute(
                     "UPDATE images SET assigned_to=%s, assigned_at=%s WHERE id=%s AND assigned_at IS NULL",
-                    [annotator_id, datetime.utcnow().isoformat(), img_id],
+                    [annotator_id, datetime.utcnow(), img_id],
                 )
                 if cur.rowcount == 1:
                     conn.commit()
@@ -116,7 +133,7 @@ def submit(
                    submitted_at=%s
              WHERE id=%s
             """,
-            [meme_val, hate_val, annotator_id, datetime.utcnow().isoformat(), image_id],
+            [meme_val, hate_val, annotator_id, datetime.utcnow(), image_id],
         )
         conn.commit()
     conn.close()
@@ -159,13 +176,13 @@ def get_image(image_id: str):
         row = cur.fetchone()
     conn.close()
     if not row:
-        print(f"[PROXY] Imagen no encontrada para id: {image_id}")
+        
         raise HTTPException(status_code=404, detail="Imagen no encontrada")
     url = row[0]
-    print(f"[PROXY] Descargando imagen: {url} para id: {image_id}")
+    
     try:
         r = httpx.get(url, follow_redirects=True, timeout=30)
-        print(f"[PROXY] Status code: {r.status_code}")
+        
         if r.status_code != 200:
             raise HTTPException(status_code=502, detail=f"Upstream {r.status_code}")
         ct = r.headers.get("content-type", "image/jpeg")
