@@ -42,36 +42,26 @@
       <input type="hidden" name="image_id" value="{{ id }}"/>
 
       <div class="question">
-        <label>¿Qué tanto te parece que es un meme?</label>
+        <label>¿En qué medida considerarías que esta imagen es un meme?</label>
         <div class="scale">
-          {% for i in range(1,8) %}
+          {% for i, category in [(1, 'No es un meme'), (2, 'Dudoso'), (3, 'Ambiguo'), (4, 'Casi seguro'), (5, 'Es un meme')] %}
           <label class="scale-option">
             <input type="radio" name="is_meme" id="is_meme_{{i}}" value="{{i}}" required>
-            <span>{{ i }}</span>
+            <div class="category-label" style="text-align: center;">{{ category }}</div>
           </label>
           {% endfor %}
-        </div>
-        <div class="scale-legend">
-          <span>No es Meme</span>
-          <span class="center">Dudoso</span>
-          <span>Es Meme</span>
         </div>
       </div>
 
       <div class="question">
-        <label>¿Creés que contiene discurso de odio?</label>
+        <label>¿En qué medida considerarías al contenido discurso de odio?</label>
         <div class="scale">
-          {% for i in range(1,8) %}
+          {% for i, category in [(1, 'No contiene'), (2, 'Dudoso'), (3, 'Ambiguo'), (4, 'Casi seguro'), (5, 'Sí, contiene')] %}
           <label class="scale-option">
             <input type="radio" name="has_hate" id="has_hate_{{i}}" value="{{i}}" required>
-            <span>{{ i }}</span>
+            <div class="category-label" style="text-align: center;">{{ category }}</div>
           </label>
           {% endfor %}
-        </div>
-        <div class="scale-legend">
-          <span>No Contiene</span>
-          <span class="center">Dudoso</span>
-          <span>Sí, Contiene</span>
         </div>
       </div>
 
