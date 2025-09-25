@@ -17,7 +17,7 @@
       <div class="question">
         <label>Edad:</label>
         <div class="scale">
-          {% for i, category in [(1, '18–24'), (2, '25–34'), (3, '35–44'), (4, '45–54'), (5, '55+')] %}
+          {% for i, category in [(1, '18 – 24'), (2, '25 – 34'), (3, '35 – 44'), (4, '45 – 54'), (5, '55+')] %}
           <label class="scale-option">
             <input type="radio" name="age_range" id="age_range_{{i}}" value="{{i}}" required>
             <div class="category-label" style="text-align: center;">{{ category }}</div>

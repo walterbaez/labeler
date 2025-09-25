@@ -1,12 +1,11 @@
-
 /* Contenedor y tipografía */
 :root { --gap:16px; }
 * { box-sizing: border-box; }
 html, body { margin:0; }
-body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; line-height:1.25; background:#fff; color:#111; }
-.container { max-width: 680px; margin: 0 auto; padding: 16px; }
-h1,h2 { margin: 0 0 16px; }
-p.instructions, ol.instructions { font-size: 1.25em; line-height: 1.6; }
+body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; line-height:1.25; background:#121212; color:#EEEEEE; }
+.container { max-width: 680px; margin: 0 auto; padding: 20px; background-color: #1E1E1E; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+h1,h2 { margin: 0 0 16px; color: #EEEEEE; }
+p.instructions, ol.instructions { font-size: 1.25em; line-height: 1.6; color: #EEEEEE; }
 
 /* Imagen responsive, que no desborde */
 .image-box { margin: 10px 0 18px; }
@@ -21,7 +20,7 @@ p.instructions, ol.instructions { font-size: 1.25em; line-height: 1.6; }
 
 /* Bloques de pregunta */
 .question { margin: 18px 0; }
-.question > label { display:block; margin-bottom:8px; font-weight:600; }
+.question > label { display:block; margin-bottom:8px; font-weight:600; color: #EEEEEE; }
 
 /* Grilla 1–7 */
 .scale {
@@ -39,11 +38,21 @@ p.instructions, ol.instructions { font-size: 1.25em; line-height: 1.6; }
 	align-items: center;
 	gap: 6px;
 	min-width: 36px;
+	background-color: #1E1E1E;
+	color: #EEEEEE;
+	border: 1px solid #EEEEEE;
+	border-radius: 5px;
+	padding: 10px;
+	margin: 5px;
+	text-align: center;
+	cursor: pointer;
+	transition: background-color 0.3s, color 0.3s;
 }
 .scale-option input[type="radio"] {
 	width: 28px; height: 28px;
 	accent-color: #111;
 	font-size: 16px;
+	display: none;
 }
 
 /* Leyenda con extremos y centro */
@@ -53,6 +62,7 @@ p.instructions, ol.instructions { font-size: 1.25em; line-height: 1.6; }
 	align-items:center;
 	font-size: 0.92em;
 	margin: 6px 2px 0;
+	color: #EEEEEE;
 }
 .scale-legend span.center { text-align:center; flex:0 0 auto; }
 .scale-legend span { white-space: nowrap; }
@@ -60,8 +70,16 @@ p.instructions, ol.instructions { font-size: 1.25em; line-height: 1.6; }
 /* Botones */
 .btn{
 	padding: 10px 14px;
-	border: none; border-radius: 12px;
-	background:#111; color:#fff; font-weight:600;
+	border: 1px solid #EEEEEE;
+	border-radius: 5px;
+	background:#1E1E1E; color:#EEEEEE; font-weight:600;
+	text-align: center;
+	cursor: pointer;
+	transition: background-color 0.3s, color 0.3s;
+}
+.btn:hover {
+	background-color: #EEEEEE;
+	color: #121212;
 }
 .btn + .btn { margin-left: 10px; }
 
@@ -72,6 +90,20 @@ p.instructions, ol.instructions { font-size: 1.25em; line-height: 1.6; }
 	.scale{ gap:10px; }
 	.scale-option input[type="radio"]{ width:26px; height:26px; }
 	.scale-legend{ font-size:0.85em; }
+}
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+
+    .scale-option {
+        flex: 1;
+        min-width: 100px;
+    }
+
+    .btn {
+        width: 100%;
+    }
 }
 p,ol { line-height: 1.5; }
 .btn { display:inline-block; padding:12px 16px; border-radius:12px; text-decoration:none; background:#111; color:#fff; }
