@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Introducción</title>
+  <link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body>
+  <div class="container">
+    <h2>Antes de arrancar...</h2>
+    <p>Te dejamos algunas preguntas que nos ayudan en la investigación. ✍️</p>
+    <p>No hay respuestas correctas o incorrectas, lo importante es tu opinión y experiencia.</p>
+    <p>Recordá que todas las respuestas son anónimas y confidenciales, así que no tenés que preocuparte por nada.</p>
+
+    <form method="POST" action="/submit_intro">
+      <div class="question">
+        <label>Edad:</label>
+        <div class="scale">
+          {% for i, category in [(1, '18–24'), (2, '25–34'), (3, '35–44'), (4, '45–54'), (5, '55+')] %}
+          <label class="scale-option">
+            <input type="radio" name="age_range" id="age_range_{{i}}" value="{{i}}" required>
+            <div class="category-label" style="text-align: center;">{{ category }}</div>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="question">
+        <label>¿Te consideras un experto en memes?</label>
+        <div class="scale">
+          {% for i, category in [(1, 'No entiendo memes'), (2, 'Entiendo algunos'), (3, 'Entiendo la mayoría'), (4, 'Uso y entiendo'), (5, 'Soy experto/a')] %}
+          <label class="scale-option">
+            <input type="radio" name="meme_expertise" id="meme_expertise_{{i}}" value="{{i}}" required>
+            <div class="category-label" style="text-align: center;">{{ category }}</div>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="question">
+        <label>¿Cómo describirías tu posición política?</label>
+        <div class="scale">
+          {% for i, category in [(1, 'Izquierda'), (2, 'Centro-izquierda'), (3, 'Centro'), (4, 'Centro-derecha'), (5, 'Derecha')] %}
+          <label class="scale-option">
+            <input type="radio" name="political_position" id="political_position_{{i}}" value="{{i}}" required>
+            <div class="category-label" style="text-align: center;">{{ category }}</div>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <button class="btn" type="submit">Enviar</button>
+    </form>
+  </div>
+</body>
+</html>

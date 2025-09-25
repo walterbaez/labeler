@@ -42,28 +42,28 @@
       <input type="hidden" name="image_id" value="{{ id }}"/>
 
       <div class="question">
-        <label>¿En qué medida considerarías que esta imagen es un meme?</label>
-        <div class="scale">
+        <label style="font-size:1em;">¿En qué medida considerarías que esta imagen es un meme?</label>
+        <div class="scale" style="display:flex;flex-wrap:wrap;justify-content:space-between;">
           {% for i, category in [(1, 'No es un meme'), (2, 'Dudoso'), (3, 'Ambiguo'), (4, 'Casi seguro'), (5, 'Es un meme')] %}
-          <label class="scale-option">
+          <label class="scale-option" style="flex:1;min-width:80px;text-align:center;margin:5px;">
             <input type="radio" name="is_meme" id="is_meme_{{i}}" value="{{i}}" required>
-            <div class="category-label" style="text-align: center;">{{ category }}</div>
+            <div class="category-label">{{ category }}</div>
           </label>
           {% endfor %}
         </div>
-      </div>
+    </div>
 
       <div class="question">
-        <label>¿En qué medida considerarías al contenido discurso de odio?</label>
-        <div class="scale">
+        <label style="font-size:1em;">¿En qué medida considerarías al contenido discurso de odio?</label>
+        <div class="scale" style="display:flex;flex-wrap:wrap;justify-content:space-between;">
           {% for i, category in [(1, 'No contiene'), (2, 'Dudoso'), (3, 'Ambiguo'), (4, 'Casi seguro'), (5, 'Sí, contiene')] %}
-          <label class="scale-option">
+          <label class="scale-option" style="flex:1;min-width:80px;text-align:center;margin:5px;">
             <input type="radio" name="has_hate" id="has_hate_{{i}}" value="{{i}}" required>
-            <div class="category-label" style="text-align: center;">{{ category }}</div>
+            <div class="category-label">{{ category }}</div>
           </label>
           {% endfor %}
         </div>
-      </div>
+    </div>
 
       <button class="btn" id="submitBtn" type="submit">Enviar (Enter)</button>
       <button class="btn" type="button" onclick="window.location.href='/done'">Fin</button>

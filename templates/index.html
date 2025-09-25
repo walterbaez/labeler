@@ -14,12 +14,12 @@
     </p>
     <div style="margin-bottom:18px;">
       <strong>¿Cómo funciona?</strong><br>
-      Vas a ver una imagen por vez. Para cada imagen, respondé dos preguntas con una escala del 1 al 7:
+      Vas a ver una imagen por vez. Para cada imagen, respondé dos preguntas con una escala del 1 al 5:
       <ul style="margin-top:10px;margin-bottom:10px;">
-        <li><strong>¿Qué tan meme te parece esta imagen?</strong><br>
-        <span style="font-size:0.98em;">1 = No es un Meme &middot; 4 = Dudoso &middot; 7 = Es Meme</span></li>
-        <li><strong>¿Cuánto discurso de odio contiene esta imagen?</strong><br>
-        <span style="font-size:0.98em;">1 = No contiene &middot; 4 = Dudoso &middot; 7 = Sí Contiene</span></li>
+        <li><strong>¿En qué medida considerarías que esta imagen es un meme?</strong><br>
+        <span style="font-size:0.98em;">1 = No es un meme &middot; 2 = Dudoso &middot; 3 = Ambiguo &middot; 4 = Casi seguro &middot; 5 = Es un meme</span></li>
+        <li><strong>¿En qué medida considerarías al contenido discurso de odio?</strong><br>
+        <span style="font-size:0.98em;">1 = No contiene &middot; 2 = Dudoso &middot; 3 = Ambiguo &middot; 4 = Casi seguro &middot; 5 = Sí, contiene</span></li>
       </ul>
     </div>
     <p><strong>¿Qué es discurso de odio?</strong><br>
@@ -28,7 +28,7 @@
       <a href="https://www.un.org/en/hate-speech/understanding-hate-speech/what-is-hate-speech" target="_blank">ONU - ¿Qué es el discurso de odio?</a>
     </p>
     <p>¡Éxitos!</p>
-    <a class="btn" href="/task">Comenzar</a>
+    <a class="btn" href="{{ '/intro' if not user_data_complete else '/task' }}">Comenzar</a>
   </div>
 </body>
 </html>
