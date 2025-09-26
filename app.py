@@ -56,6 +56,7 @@ def assign_one_random(conn, assigned_to: str):
                     "SELECT id, url FROM images WHERE assigned_at IS NULL AND labeled=0 ORDER BY RANDOM() LIMIT 1"
                 )
                 row = cur.fetchone()
+                print(f"Resultado de la consulta de imágenes: {row}")
                 if not row:
                     conn.rollback()
                     return None
@@ -64,11 +65,13 @@ def assign_one_random(conn, assigned_to: str):
                     "UPDATE images SET assigned_to=%s, assigned_at=%s WHERE id=%s AND assigned_at IS NULL",
                     [assigned_to, datetime.utcnow(), img_id],
                 )
+                print(f"Resultado de la actualización: {cur.rowcount} filas afectadas")
                 if cur.rowcount == 1:
                     conn.commit()
                     return {"id": img_id, "url": url}
                 conn.rollback()
-        except Exception:
+        except Exception as e:
+            print(f"Error en assign_one_random: {str(e)}")
             try:
                 conn.rollback()
             except Exception:
