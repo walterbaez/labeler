@@ -39,11 +39,21 @@ def get_db():
         raise
     return conn
 
-def get_or_create_assigned_to(request: Request, response: Response) -> str:
+def get_or_create_assigned_to(request: Request, response: Response, conn) -> str:
     assigned_to = request.cookies.get("assigned_to")
     if not assigned_to:
         assigned_to = str(uuid.uuid4())
         response.set_cookie(key="assigned_to", value=assigned_to, httponly=False, samesite="lax")
+    
+    # Ensure the assigned_to exists in the users table
+    try:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO users (id) VALUES (%s) ON CONFLICT (id) DO NOTHING", [assigned_to])
+            conn.commit()
+    except Exception as e:
+        print(f"Error inserting assigned_to into users: {str(e)}")
+        conn.rollback()
+
     return assigned_to
 
 def assign_one_random(conn, assigned_to: str):
@@ -108,7 +118,7 @@ def validate_database_url():
 # Renombrar el helper y ajustar lógica
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    assigned_to = get_or_create_assigned_to(request, Response())
+    assigned_to = get_or_create_assigned_to(request, Response(), get_db())
     conn = get_db()
     ensure_user_row(conn, assigned_to)
     user_data_complete = check_user_data_complete(conn, assigned_to)
@@ -119,7 +129,7 @@ def home(request: Request):
 
 @app.get("/intro", response_class=HTMLResponse)
 def intro_form(request: Request):
-    assigned_to = get_or_create_assigned_to(request, Response())
+    assigned_to = get_or_create_assigned_to(request, Response(), get_db())
     conn = get_db()
     ensure_user_row(conn, assigned_to)
     user_data_complete = check_user_data_complete(conn, assigned_to)
@@ -132,7 +142,7 @@ def intro_form(request: Request):
 
 @app.post("/submit_intro")
 def submit_intro(request: Request, response: Response, age_range: str = Form(...), meme_expertise: str = Form(...), political_position: str = Form(...)):
-    assigned_to = get_or_create_assigned_to(request, response)
+    assigned_to = get_or_create_assigned_to(request, response, get_db())
     conn = get_db()
     with conn.cursor() as cur:
         cur.execute(
@@ -148,7 +158,7 @@ def submit_intro(request: Request, response: Response, age_range: str = Form(...
 # Adjust `/task` to assign an image immediately
 @app.get("/task", response_class=HTMLResponse)
 def task(request: Request):
-    assigned_to = get_or_create_assigned_to(request, Response())
+    assigned_to = get_or_create_assigned_to(request, Response(), get_db())
     conn = get_db()
     data = assign_one_random(conn, assigned_to)
     conn.close()
