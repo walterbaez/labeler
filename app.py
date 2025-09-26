@@ -162,9 +162,9 @@ def submit_intro(request: Request, response: Response, age_range: str = Form(...
         conn = get_db()
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO intro_responses (annotator_id, age_range, meme_expertise, political_position, created_at) "
-                "VALUES (%s, %s, %s, %s, %s)",
-                (annotator_id, age_range, meme_expertise, political_position, datetime.utcnow())
+                "INSERT INTO users (assigned_to, age_range, meme_expertise, political_position) "
+                "VALUES (%s, %s, %s, %s)",
+                (annotator_id, age_range, meme_expertise, political_position)
             )
             conn.commit()
         return RedirectResponse(url="/task", status_code=303)
