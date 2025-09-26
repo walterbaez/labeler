@@ -286,9 +286,13 @@ def get_image(image_id: str):
 # Helper functions
 
 def ensure_user_row(conn, assigned_to):
-    with conn.cursor() as cur:
-        cur.execute("INSERT INTO users (assigned_to) VALUES (%s) ON CONFLICT DO NOTHING", (assigned_to,))
-        conn.commit()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO users (assigned_to) VALUES (%s) ON CONFLICT DO NOTHING", (assigned_to,))
+            conn.commit()
+            print(f"Usuario asegurado en la tabla users: {assigned_to}")
+    except Exception as e:
+        print(f"Error al asegurar usuario en users: {str(e)}")
 
 def check_user_data_complete(conn, assigned_to):
     with conn.cursor() as cur:
