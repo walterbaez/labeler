@@ -147,25 +147,30 @@ def intro_form(request: Request):
 
     return templates.TemplateResponse("intro.html", {"request": request})
 
+
 @app.post("/submit_intro")
-def submit_intro(request: Request, age_range: int = Form(...), meme_expertise: int = Form(...), political_position: int = Form(...)):
-    assigned_to = get_or_create_annotator_id(request, Response())
-    conn = get_db()
+def submit_intro(request: Request, response: Response, age_range: str = Form(...), meme_expertise: str = Form(...), political_position: str = Form(...)):
     try:
+        print("Datos recibidos en /submit_intro:")
+        print(f"age_range: {age_range}")
+        print(f"meme_expertise: {meme_expertise}")
+        print(f"political_position: {political_position}")
+
+        annotator_id = get_or_create_annotator_id(request, response)
+        print(f"annotator_id: {annotator_id}")
+
+        conn = get_db()
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE users SET age_range=%s, meme_expertise=%s, political_position=%s WHERE assigned_to=%s",
-                (age_range, meme_expertise, political_position, assigned_to)
+                "INSERT INTO intro_responses (annotator_id, age_range, meme_expertise, political_position, created_at) "
+                "VALUES (%s, %s, %s, %s, %s)",
+                (annotator_id, age_range, meme_expertise, political_position, datetime.utcnow())
             )
-            if cur.rowcount == 0:
-                return PlainTextResponse("No se pudo actualizar los datos del usuario.", status_code=400)
             conn.commit()
+        return RedirectResponse(url="/task", status_code=303)
     except Exception as e:
-        print(f"Error al guardar datos del encuestado: {str(e)}")
-        return PlainTextResponse("Error al guardar datos", status_code=500)
-    finally:
-        conn.close()
-    return RedirectResponse(url="/task", status_code=303)
+        print(f"Error en /submit_intro: {str(e)}")
+        raise HTTPException(status_code=400, detail="Error al procesar la solicitud.")
 
 # Adjust `/task` to assign an image immediately
 @app.get("/task", response_class=HTMLResponse)
