@@ -39,12 +39,12 @@ def get_db():
         raise
     return conn
 
-def get_or_create_annotator_id(request: Request, response: Response) -> str:
-    annotator_id = request.cookies.get("annotator_id")
-    if not annotator_id:
-        annotator_id = str(uuid.uuid4())
-        response.set_cookie(key="annotator_id", value=annotator_id, httponly=False, samesite="lax")
-    return annotator_id
+def get_or_create_assigned_to(request: Request, response: Response) -> str:
+    assigned_to = request.cookies.get("assigned_to")
+    if not assigned_to:
+        assigned_to = str(uuid.uuid4())
+        response.set_cookie(key="assigned_to", value=assigned_to, httponly=False, samesite="lax")
+    return assigned_to
 
 def assign_one_random(conn, assigned_to: str):
     """Assign one random image to the user."""
@@ -102,86 +102,74 @@ def validate_database_url():
         raise Exception("DATABASE_URL no está configurada en las variables de entorno")
     print("DATABASE_URL validada correctamente.")
 
-# Simplify `/` endpoint to check user data and redirect accordingly
+# Renombrar el helper y ajustar lógica
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    assigned_to = get_or_create_annotator_id(request, Response())
+    assigned_to = get_or_create_assigned_to(request, Response())
     conn = get_db()
-    user_exists = False
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM users WHERE assigned_to = %s", (assigned_to,))
-            user_exists = cur.fetchone() is not None
-            if not user_exists:
-                cur.execute("INSERT INTO users (assigned_to) VALUES (%s)", (assigned_to,))
-                conn.commit()
-    except Exception as e:
-        print(f"Error al verificar o crear el usuario: {str(e)}")
-        return PlainTextResponse("Error interno", status_code=500)
-    finally:
-        conn.close()
+    ensure_user_row(conn, assigned_to)
+    user_data_complete = check_user_data_complete(conn, assigned_to)
+    conn.close()
 
-    return templates.TemplateResponse("index.html", {"request": request, "user_exists": user_exists})
+    next_path = "/task" if user_data_complete else "/intro"
+    return templates.TemplateResponse("index.html", {"request": request, "next_path": next_path})
 
-# Simplify `/intro` endpoint to only collect user data
 @app.get("/intro", response_class=HTMLResponse)
 def intro_form(request: Request):
-    assigned_to = get_or_create_annotator_id(request, Response())
+    assigned_to = get_or_create_assigned_to(request, Response())
     conn = get_db()
-    user_data = None
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT age_range, meme_expertise, political_position FROM users WHERE assigned_to = %s",
-                (assigned_to,)
-            )
-            user_data = cur.fetchone()
-    except Exception as e:
-        print(f"Error al verificar datos del usuario: {str(e)}")
-        return PlainTextResponse("Error interno", status_code=500)
-    finally:
-        conn.close()
+    ensure_user_row(conn, assigned_to)
+    user_data_complete = check_user_data_complete(conn, assigned_to)
+    conn.close()
 
-    if user_data and all(user_data):
+    if user_data_complete:
         return RedirectResponse(url="/task", status_code=303)
 
     return templates.TemplateResponse("intro.html", {"request": request})
 
-
 @app.post("/submit_intro")
 def submit_intro(request: Request, response: Response, age_range: str = Form(...), meme_expertise: str = Form(...), political_position: str = Form(...)):
-    try:
-        print("Datos recibidos en /submit_intro:")
-        print(f"age_range: {age_range}")
-        print(f"meme_expertise: {meme_expertise}")
-        print(f"political_position: {political_position}")
-
-        annotator_id = get_or_create_annotator_id(request, response)
-        print(f"annotator_id: {annotator_id}")
-
-        conn = get_db()
-        with conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO users (assigned_to, age_range, meme_expertise, political_position) "
-                "VALUES (%s, %s, %s, %s)",
-                (annotator_id, age_range, meme_expertise, political_position)
-            )
-            conn.commit()
-        return RedirectResponse(url="/task", status_code=303)
-    except Exception as e:
-        print(f"Error en /submit_intro: {str(e)}")
-        raise HTTPException(status_code=400, detail="Error al procesar la solicitud.")
+    assigned_to = get_or_create_assigned_to(request, response)
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO users (assigned_to, age_range, meme_expertise, political_position) "
+            "VALUES (%s, %s, %s, %s) ON CONFLICT (assigned_to) DO UPDATE SET "
+            "age_range = EXCLUDED.age_range, meme_expertise = EXCLUDED.meme_expertise, political_position = EXCLUDED.political_position",
+            (assigned_to, age_range, meme_expertise, political_position)
+        )
+        conn.commit()
+    conn.close()
+    return RedirectResponse(url="/task", status_code=303)
 
 # Adjust `/task` to assign an image immediately
 @app.get("/task", response_class=HTMLResponse)
 def task(request: Request):
-    assigned_to = get_or_create_annotator_id(request, Response())
+    assigned_to = get_or_create_assigned_to(request, Response())
     conn = get_db()
     data = assign_one_random(conn, assigned_to)
     conn.close()
     if not data:
         return RedirectResponse(url="/done", status_code=303)
     return templates.TemplateResponse("task.html", {"request": request, "id": data["id"], "url": data["url"]})
+
+@app.post("/submit")
+def submit(
+    request: Request,
+    image_id: str = Form(...),
+    is_meme: int = Form(...),
+    has_hate: Optional[int] = Form(None),
+):
+    assigned_to = request.cookies.get("assigned_to")
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPDATE images SET labeled=1, label_meme=%s, label_hate=%s, assigned_to=%s, submitted_at=%s WHERE id=%s",
+            [is_meme, has_hate, assigned_to, datetime.utcnow(), image_id]
+        )
+        conn.commit()
+    conn.close()
+    return RedirectResponse(url="/task", status_code=303)
 
 # Ensure `/done` simply shows the completion message
 @app.get("/done", response_class=HTMLResponse)
@@ -223,13 +211,7 @@ def release_stale():
     conn = get_db()
     with conn.cursor() as cur:
         cur.execute(
-            """
-            UPDATE images
-               SET assigned_at = NULL,
-                   assigned_to = NULL
-             WHERE labeled = 0
-               AND assigned_to IS NOT NULL
-            """
+            "UPDATE images SET assigned_at=NULL, assigned_to=NULL WHERE labeled=0 AND assigned_to IS NOT NULL"
         )
         released = cur.rowcount
         conn.commit()
@@ -298,38 +280,15 @@ def get_image(image_id: str):
         print(f"Error al cargar la imagen desde la URL: {e}")
         raise HTTPException(status_code=502, detail="Error al cargar la imagen")
 
-@app.post("/submit")
-def submit(
-    request: Request,
-    image_id: str = Form(...),
-    is_meme: int = Form(...),
-    has_hate: Optional[int] = Form(None),
-):
-    try:
-        meme_val = int(is_meme)
-        hate_val = int(has_hate)
-    except (TypeError, ValueError):
-        return PlainTextResponse("Las respuestas deben ser números entre 1 y 7", status_code=400)
-    if not (1 <= meme_val <= 7):
-        return PlainTextResponse("El puntaje de meme debe estar entre 1 y 7", status_code=400)
-    if not (1 <= hate_val <= 7):
-        return PlainTextResponse("El puntaje de odio debe estar entre 1 y 7", status_code=400)
+# Helper functions
 
-    annotator_id = request.cookies.get("annotator_id") or "unknown"
-    conn = get_db()
+def ensure_user_row(conn, assigned_to):
     with conn.cursor() as cur:
-        cur.execute(
-            """
-            UPDATE images
-               SET labeled=1,
-                   label_meme=%s,
-                   label_hate=%s,
-                   annotator_id=%s,
-                   submitted_at=%s
-             WHERE id=%s
-            """,
-            [meme_val, hate_val, annotator_id, datetime.utcnow(), image_id],
-        )
+        cur.execute("INSERT INTO users (assigned_to) VALUES (%s) ON CONFLICT DO NOTHING", (assigned_to,))
         conn.commit()
-    conn.close()
-    return RedirectResponse(url="/task", status_code=303)
+
+def check_user_data_complete(conn, assigned_to):
+    with conn.cursor() as cur:
+        cur.execute("SELECT age_range, meme_expertise, political_position FROM users WHERE assigned_to = %s", (assigned_to,))
+        row = cur.fetchone()
+        return row and all(row)
