@@ -142,7 +142,7 @@ def intro_form(request: Request):
 
 @app.post("/submit_intro")
 def submit_intro(request: Request, response: Response, age_range: str = Form(...), meme_expertise: str = Form(...), political_position: str = Form(...)):
-    assigned_to = get_or_create_assigned_to(request, response, get_db())
+    assigned_to = request.cookies.get("assigned_to")  # Use the existing assigned_to from the cookie
     conn = get_db()
     with conn.cursor() as cur:
         cur.execute(
