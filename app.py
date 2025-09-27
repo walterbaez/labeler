@@ -48,7 +48,7 @@ def get_or_create_assigned_to(request: Request, response: Response, conn) -> str
     # Ensure the assigned_to exists in the users table
     try:
         with conn.cursor() as cur:
-            cur.execute("INSERT INTO users (id) VALUES (%s) ON CONFLICT (id) DO NOTHING", [assigned_to])
+            cur.execute("INSERT INTO users (assigned_to) VALUES (%s) ON CONFLICT (assigned_to) DO NOTHING", [assigned_to])
             conn.commit()
     except Exception as e:
         print(f"Error inserting assigned_to into users: {str(e)}")
@@ -142,14 +142,13 @@ def intro_form(request: Request):
 
 @app.post("/submit_intro")
 def submit_intro(request: Request, response: Response, age_range: str = Form(...), meme_expertise: str = Form(...), political_position: str = Form(...)):
-    assigned_to = request.cookies.get("assigned_to")  # Use the existing assigned_to from the cookie
+    assigned_to = request.cookies.get("assigned_to")  # Recuperar el valor de assigned_to desde la cookie
     conn = get_db()
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO users (assigned_to, age_range, meme_expertise, political_position) "
-            "VALUES (%s, %s, %s, %s) ON CONFLICT (assigned_to) DO UPDATE SET "
-            "age_range = EXCLUDED.age_range, meme_expertise = EXCLUDED.meme_expertise, political_position = EXCLUDED.political_position",
-            (assigned_to, age_range, meme_expertise, political_position)
+            "UPDATE users SET age_range = %s, meme_expertise = %s, political_position = %s "
+            "WHERE assigned_to = %s",
+            (age_range, meme_expertise, political_position, assigned_to)
         )
         conn.commit()
     conn.close()
