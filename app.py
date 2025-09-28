@@ -11,7 +11,6 @@ from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.middleware.sessions import SessionMiddleware
 
 DB_URL = os.environ.get("DATABASE_URL")
 ASSIGN_RETRIES = 5  # reintentos ante carrera
@@ -21,9 +20,6 @@ WORKERS_NOTE = "Con SQLite, corré con un solo proceso: uvicorn app:app --worker
 app = FastAPI(title="Image Labeler", version="1.0")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
-
-# Agregar middleware para manejar sesiones
-app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
 
 def get_db():
     print("Intentando conectar a la base de datos con URL:")
@@ -123,15 +119,14 @@ def validate_database_url():
 
 # Renombrar el helper y ajustar lógica
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request):
+def home(request: Request, response: Response):
     conn = get_db()
-    assigned_to = request.session.get("assigned_to")
+    assigned_to = request.cookies.get("assigned_to")
 
     if not assigned_to:
-        # Generar un nuevo valor de assigned_to si no existe en la sesión
-        client_ip = request.client.host
-        assigned_to = f"user-{client_ip}"
-        request.session["assigned_to"] = assigned_to
+        # Generar un nuevo valor de assigned_to si no existe en la cookie
+        assigned_to = f"user-{uuid.uuid4()}"
+        response.set_cookie(key="assigned_to", value=assigned_to, httponly=False, samesite="lax")
 
         # Guardar en la tabla users
         ensure_user_row(conn, assigned_to)
@@ -143,8 +138,12 @@ def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request, "next_path": next_path})
 
 @app.get("/intro", response_class=HTMLResponse)
-def intro_form(request: Request):
-    assigned_to = get_or_create_assigned_to(request, Response(), get_db())
+def intro_form(request: Request, response: Response):
+    assigned_to = request.cookies.get("assigned_to")
+    if not assigned_to:
+        assigned_to = f"user-{uuid.uuid4()}"
+        response.set_cookie(key="assigned_to", value=assigned_to, httponly=False, samesite="lax")
+
     conn = get_db()
     ensure_user_row(conn, assigned_to)
     user_data_complete = check_user_data_complete(conn, assigned_to)
@@ -173,7 +172,7 @@ def submit_intro(request: Request, response: Response, age_range: str = Form(...
 @app.get("/task", response_class=HTMLResponse)
 def task(request: Request):
     conn = get_db()
-    assigned_to = request.session.get("assigned_to")
+    assigned_to = request.cookies.get("assigned_to")
 
     if not assigned_to:
         return RedirectResponse(url="/", status_code=303)
@@ -193,7 +192,7 @@ def submit(
     has_hate: Optional[int] = Form(None),
 ):
     conn = get_db()
-    assigned_to = request.session.get("assigned_to")
+    assigned_to = request.cookies.get("assigned_to")
 
     if not assigned_to:
         return RedirectResponse(url="/", status_code=303)
