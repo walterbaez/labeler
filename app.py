@@ -11,6 +11,7 @@ from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 
 DB_URL = os.environ.get("DATABASE_URL")
 ASSIGN_RETRIES = 5  # reintentos ante carrera
@@ -20,6 +21,9 @@ WORKERS_NOTE = "Con SQLite, corré con un solo proceso: uvicorn app:app --worker
 app = FastAPI(title="Image Labeler", version="1.0")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+# Agregar middleware para manejar sesiones
+app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
 
 def get_db():
     print("Intentando conectar a la base de datos con URL:")
@@ -42,7 +46,9 @@ def get_db():
 def get_or_create_assigned_to(request: Request, response: Response, conn) -> str:
     assigned_to = request.cookies.get("assigned_to")
     if not assigned_to:
-        assigned_to = str(uuid.uuid4())
+        # Use the client's IP address as the assigned_to value
+        client_ip = request.client.host
+        assigned_to = f"user-{client_ip}"
         response.set_cookie(key="assigned_to", value=assigned_to, httponly=False, samesite="lax")
     
     # Ensure the assigned_to exists in the users table
@@ -118,9 +124,18 @@ def validate_database_url():
 # Renombrar el helper y ajustar lógica
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    assigned_to = get_or_create_assigned_to(request, Response(), get_db())
     conn = get_db()
-    ensure_user_row(conn, assigned_to)
+    assigned_to = request.session.get("assigned_to")
+
+    if not assigned_to:
+        # Generar un nuevo valor de assigned_to si no existe en la sesión
+        client_ip = request.client.host
+        assigned_to = f"user-{client_ip}"
+        request.session["assigned_to"] = assigned_to
+
+        # Guardar en la tabla users
+        ensure_user_row(conn, assigned_to)
+
     user_data_complete = check_user_data_complete(conn, assigned_to)
     conn.close()
 
@@ -157,10 +172,15 @@ def submit_intro(request: Request, response: Response, age_range: str = Form(...
 # Adjust `/task` to assign an image immediately
 @app.get("/task", response_class=HTMLResponse)
 def task(request: Request):
-    assigned_to = get_or_create_assigned_to(request, Response(), get_db())
     conn = get_db()
+    assigned_to = request.session.get("assigned_to")
+
+    if not assigned_to:
+        return RedirectResponse(url="/", status_code=303)
+
     data = assign_one_random(conn, assigned_to)
     conn.close()
+
     if not data:
         return RedirectResponse(url="/done", status_code=303)
     return templates.TemplateResponse("task.html", {"request": request, "id": data["id"], "url": data["url"]})
@@ -172,8 +192,12 @@ def submit(
     is_meme: int = Form(...),
     has_hate: Optional[int] = Form(None),
 ):
-    assigned_to = request.cookies.get("assigned_to")
     conn = get_db()
+    assigned_to = request.session.get("assigned_to")
+
+    if not assigned_to:
+        return RedirectResponse(url="/", status_code=303)
+
     with conn.cursor() as cur:
         cur.execute(
             "UPDATE images SET labeled=1, label_meme=%s, label_hate=%s, assigned_to=%s, submitted_at=%s WHERE id=%s",
