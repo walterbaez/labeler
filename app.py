@@ -130,6 +130,31 @@ def get_db():
         print(f"Error al conectar a la base de datos: {str(e)}")
         raise
     return conn
+# NUEVO: Función para centralizar la obtención/creación del ID y la configuración de la cookie
+def get_or_create_persistent_user_id(request: Request, response: Response, conn) -> str:
+    assigned_to = request.cookies.get("assigned_to")
+    
+    if not assigned_to:
+        # Generar un UUID único y robusto
+        assigned_to = f"user-{uuid.uuid4()}"
+        
+        # 1. Configurar la persistencia (Max-Age para 1 año)
+        # 2. Configurar HttpOnly=True por seguridad
+        # 3. Path=/ es el default, pero lo ponemos para claridad
+        one_year_seconds = 365 * 24 * 60 * 60
+        response.set_cookie(
+            key="assigned_to", 
+            value=assigned_to, 
+            max_age=one_year_seconds, # <--- HACE LA COOKIE PERSISTENTE
+            httponly=True,            # <--- MEJORA DE SEGURIDAD
+            samesite="lax",
+            path="/"
+        )
+        
+        # Asegurar que el usuario exista en la DB
+        ensure_user_row(conn, assigned_to)
+        
+    return assigned_to
 
 def get_or_create_assigned_to(request: Request, response: Response, conn) -> str:
     assigned_to = request.cookies.get("assigned_to")
