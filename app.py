@@ -104,7 +104,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse,
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-DB_URL = os.environ.get("DATABAgitSE_URL")
+DB_URL = os.environ.get("DATABASE_URL")
 ASSIGN_RETRIES = 5  # reintentos ante carrera
 REQUIRE_TOKEN = os.environ.get("REQUIRE_TOKEN", "")  # si lo definís, exige ?token=...
 WORKERS_NOTE = "Con SQLite, corré con un solo proceso: uvicorn app:app --workers 1"
