@@ -156,24 +156,6 @@ def get_or_create_persistent_user_id(request: Request, response: Response, conn)
         
     return assigned_to
 
-def get_or_create_assigned_to(request: Request, response: Response, conn) -> str:
-    assigned_to = request.cookies.get("assigned_to")
-    if not assigned_to:
-        # Use the client's IP address as the assigned_to value
-        client_ip = request.client.host
-        assigned_to = f"user-{client_ip}"
-        response.set_cookie(key="assigned_to", value=assigned_to, httponly=False, samesite="lax")
-    
-    # Ensure the assigned_to exists in the users table
-    try:
-        with conn.cursor() as cur:
-            cur.execute("INSERT INTO users (assigned_to) VALUES (%s) ON CONFLICT (assigned_to) DO NOTHING", [assigned_to])
-            conn.commit()
-    except Exception as e:
-        print(f"Error inserting assigned_to into users: {str(e)}")
-        conn.rollback()
-
-    return assigned_to
 
 def assign_one_random(conn, assigned_to: str):
     """Assign one random image to the user."""
