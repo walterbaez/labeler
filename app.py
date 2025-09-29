@@ -306,4 +306,7 @@ def get_image(image_id: str):
         if r.status_code != 200:
             raise HTTPException(status_code=502, detail=f"Error al cargar la imagen: {r.status_code}")
         ct = r.headers.get("content-type", "image/jpeg")
-        return Response(content=r.content, media_type=ct
+        return Response(content=r.content, media_type=ct) 
+    except httpx.RequestError as e:
+        print(f"Error al cargar la imagen desde la URL: {e}") 
+        raise HTTPException(status_code=502, detail="Error al cargar la imagen")
