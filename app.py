@@ -77,16 +77,35 @@ def get_db():
     except Exception as e:
         print(f"Error al conectar a la base de datos: {str(e)}")
         raise
+def ensure_user_exists(conn, assigned_to: Optional[str]):
+    """
+    Garantiza que exista una fila en users para el assigned_to dado.
+    No crea cookies ni toca otras rutas; solo reconcilia cookie↔DB.
+    """
+    if not assigned_to:
+        return
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO users (assigned_to) VALUES (%s) ON CONFLICT DO NOTHING",
+            (assigned_to,)
+        )
 
 def check_user_data_complete(conn, assigned_to):
     print(f"[check_user] assigned_to={assigned_to!r}")
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT age_range, meme_expertise, political_position FROM users WHERE assigned_to = %s",
+            """
+            SELECT
+              (age_range IS NOT NULL)
+              AND (meme_expertise IS NOT NULL)
+              AND (political_position IS NOT NULL)
+            FROM users
+            WHERE assigned_to = %s
+            """,
             (assigned_to,)
         )
         row = cur.fetchone()
-        complete = bool(row and all(row))
+        complete = bool(row and row[0])
         print(f"[check_user] row={row} complete={complete}")
         return complete
         
@@ -173,6 +192,10 @@ def intro_form(request: Request):
     assigned_to = request.cookies.get("assigned_to")
     print("[/intro] cookie:", assigned_to)
     conn = get_db()
+
+    #  NUEVO: reconciliar usuario si existe cookie pero falta fila en DB
+    ensure_user_exists(conn, assigned_to)
+
     user_data_complete = check_user_data_complete(conn, assigned_to) if assigned_to else False
     conn.close()
     print(f"[/intro] user_data_complete={user_data_complete}")
@@ -191,6 +214,10 @@ def submit_intro(
     assigned_to = request.cookies.get("assigned_to")
     print(f"[/submit_intro] cookie={assigned_to} payload age={age_range} memexp={meme_expertise} pol={political_position}")
     conn = get_db()
+
+    # NUEVO: reconciliar usuario si existe cookie pero falta fila en DB
+    ensure_user_exists(conn, assigned_to)
+
     with conn.cursor() as cur:
         cur.execute(
             "UPDATE users SET age_range = %s, meme_expertise = %s, political_position = %s WHERE assigned_to = %s",
@@ -207,6 +234,10 @@ def task(request: Request):
     assigned_to = request.cookies.get("assigned_to")
     print("[/task] cookie:", assigned_to)
     conn = get_db()
+
+    # 🔧 NUEVO: reconciliar usuario si existe cookie pero falta fila en DB
+    ensure_user_exists(conn, assigned_to)
+
     data = assign_one_random(conn, assigned_to)
     conn.close()
     print("[/task] assign_one_random ->", data)
@@ -214,7 +245,6 @@ def task(request: Request):
         print("[/task] redirect -> /done")
         return RedirectResponse(url="/done", status_code=303)
     return templates.TemplateResponse("task.html", {"request": request, "id": data["id"], "url": data["url"]})
-
 
 @app.post("/submit")
 def submit(
