@@ -11,6 +11,8 @@ import uuid
 import psycopg
 from datetime import datetime
 from typing import Optional
+import traceback
+
 
 DB_URL = os.environ.get("DATABASE_URL")
 ASSIGN_RETRIES = 5  # reintentos ante carrera
@@ -22,33 +24,41 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 def assign_one_random(conn, assigned_to: str):
-    """Assign one random image to the user."""
-    for _ in range(ASSIGN_RETRIES):
+    print(f"[assign] start assigned_to={assigned_to!r}")
+    for attempt in range(1, ASSIGN_RETRIES + 1):
         try:
             with conn.cursor() as cur:
-                cur.execute("BEGIN;")
+                print(f"[assign] attempt {attempt}: SELECT")
                 cur.execute(
                     "SELECT id, url FROM images WHERE assigned_at IS NULL AND labeled=0 ORDER BY RANDOM() LIMIT 1"
                 )
                 row = cur.fetchone()
+                print(f"[assign] attempt {attempt}: selected={row}")
                 if not row:
                     conn.rollback()
                     return None
                 img_id, url = row
                 cur.execute(
-                    "UPDATE images SET assigned_to=%s, assigned_at=%s WHERE id=%s AND assigned_at IS NULL",
+                    "UPDATE images SET assigned_to=%s, assigned_at=%s WHERE id=%s AND assigned_at IS NULL RETURNING id",
                     [assigned_to, datetime.utcnow(), img_id],
                 )
-                if cur.rowcount == 1:
+                updated = cur.fetchone()
+                print(f"[assign] attempt {attempt}: UPDATE returning={updated}")
+                if updated:
                     conn.commit()
+                    print(f"[assign] OK id={img_id}")
                     return {"id": img_id, "url": url}
                 conn.rollback()
-        except Exception:
+                print(f"[assign] attempt {attempt}: race -> retry")
+        except Exception as e:
+            print(f"[assign][ERROR] attempt {attempt}: {type(e).__name__}: {e}")
+            traceback.print_exc()
             try:
                 conn.rollback()
             except Exception:
                 pass
             continue
+    print("[assign] exhausted retries -> None")
     return None
 
 def get_db():
@@ -69,14 +79,17 @@ def get_db():
         raise
 
 def check_user_data_complete(conn, assigned_to):
+    print(f"[check_user] assigned_to={assigned_to!r}")
     with conn.cursor() as cur:
         cur.execute(
             "SELECT age_range, meme_expertise, political_position FROM users WHERE assigned_to = %s",
             (assigned_to,)
         )
         row = cur.fetchone()
-        return row and all(row)
-
+        complete = bool(row and all(row))
+        print(f"[check_user] row={row} complete={complete}")
+        return complete
+        
 @app.on_event("startup")
 def create_users_table():
     conn = get_db()
@@ -106,24 +119,23 @@ def validate_database_url():
 # =========================
 @app.middleware("http")
 async def ensure_assigned_to_only_at_root(request: Request, call_next):
-    need_seed = (
-        request.url.path == "/"
-        and not request.cookies.get("assigned_to")
-    )
-    new_val = f"user-{uuid.uuid4()}" if need_seed else None
+    has_cookie = bool(request.cookies.get("assigned_to"))
+    need_seed = (request.url.path == "/" and not has_cookie)
+    print(f"[mw] path={request.url.path} has_cookie={has_cookie} need_seed={need_seed}")
 
+    new_val = f"user-{uuid.uuid4()}" if need_seed else None
     response: Response = await call_next(request)
 
     if need_seed:
+        print(f"[mw] seteando cookie assigned_to={new_val}")
         response.set_cookie(
             key="assigned_to",
             value=new_val,
-            max_age=365*24*60*60,   # 1 año
+            max_age=365*24*60*60,
             httponly=True,
             samesite="lax",
             path="/",
         )
-        # Insert directo en DB
         try:
             conn = get_db()
             with conn.cursor() as cur:
@@ -131,36 +143,41 @@ async def ensure_assigned_to_only_at_root(request: Request, call_next):
                     "INSERT INTO users (assigned_to) VALUES (%s) ON CONFLICT DO NOTHING",
                     (new_val,)
                 )
+                print(f"[mw] INSERT users rowcount={cur.rowcount} (0 o 1 es normal)")
                 conn.commit()
             conn.close()
         except Exception as e:
-            print(f"Error al asegurar usuario en users: {str(e)}")
+            print("[mw][ERROR] al insertar user:", repr(e))
+            traceback.print_exc()
 
     return response
-
 # =========================
 # Rutas
 # =========================
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
+    print("[/ ] ENTER cookie:", request.cookies.get("assigned_to"))
     conn = get_db()
-    assigned_to = request.cookies.get("assigned_to")  # puede ser None en la primera visita
+    assigned_to = request.cookies.get("assigned_to")
     if assigned_to:
         user_data_complete = check_user_data_complete(conn, assigned_to)
         next_path = "/task" if user_data_complete else "/intro"
     else:
-        # la cookie se setea al salir (middleware) en esta misma respuesta
         next_path = "/intro"
     conn.close()
+    print(f"[/ ] next_path={next_path}")
     return templates.TemplateResponse("index.html", {"request": request, "next_path": next_path})
 
 @app.get("/intro", response_class=HTMLResponse)
 def intro_form(request: Request):
     assigned_to = request.cookies.get("assigned_to")
+    print("[/intro] cookie:", assigned_to)
     conn = get_db()
     user_data_complete = check_user_data_complete(conn, assigned_to) if assigned_to else False
     conn.close()
+    print(f"[/intro] user_data_complete={user_data_complete}")
     if user_data_complete:
+        print("[/intro] redirect -> /task")
         return RedirectResponse(url="/task", status_code=303)
     return templates.TemplateResponse("intro.html", {"request": request})
 
@@ -172,25 +189,32 @@ def submit_intro(
     political_position: int = Form(...)
 ):
     assigned_to = request.cookies.get("assigned_to")
+    print(f"[/submit_intro] cookie={assigned_to} payload age={age_range} memexp={meme_expertise} pol={political_position}")
     conn = get_db()
     with conn.cursor() as cur:
         cur.execute(
             "UPDATE users SET age_range = %s, meme_expertise = %s, political_position = %s WHERE assigned_to = %s",
             (age_range, meme_expertise, political_position, assigned_to)
         )
+        print("[/submit_intro] UPDATE users rowcount:", cur.rowcount)
         conn.commit()
     conn.close()
+    print("[/submit_intro] redirect -> /task")
     return RedirectResponse(url="/task", status_code=303)
 
 @app.get("/task", response_class=HTMLResponse)
 def task(request: Request):
     assigned_to = request.cookies.get("assigned_to")
+    print("[/task] cookie:", assigned_to)
     conn = get_db()
     data = assign_one_random(conn, assigned_to)
     conn.close()
+    print("[/task] assign_one_random ->", data)
     if not data:
+        print("[/task] redirect -> /done")
         return RedirectResponse(url="/done", status_code=303)
     return templates.TemplateResponse("task.html", {"request": request, "id": data["id"], "url": data["url"]})
+
 
 @app.post("/submit")
 def submit(
