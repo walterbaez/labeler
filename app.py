@@ -21,25 +21,6 @@ app = FastAPI(title="Image Labeler", version="1.0")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# Consolidated single definitions to remove duplicates
-
-def get_or_create_persistent_user_id(request: Request, response: Response, conn) -> str:
-    assigned_to = request.cookies.get("assigned_to")
-    if not assigned_to:
-        assigned_to = f"user-{uuid.uuid4()}"
-        one_year_seconds = 365 * 24 * 60 * 60
-        response.set_cookie(
-            key="assigned_to",
-            value=assigned_to,
-            max_age=one_year_seconds,
-            httponly=True,
-            samesite="lax",
-            path="/"
-        )
-        ensure_user_row(conn, assigned_to)
-    return assigned_to
-
-
 def assign_one_random(conn, assigned_to: str):
     """Assign one random image to the user."""
     for _ in range(ASSIGN_RETRIES):
@@ -62,7 +43,7 @@ def assign_one_random(conn, assigned_to: str):
                     conn.commit()
                     return {"id": img_id, "url": url}
                 conn.rollback()
-        except Exception as e:
+        except Exception:
             try:
                 conn.rollback()
             except Exception:
@@ -81,28 +62,20 @@ def get_db():
             keepalives_interval=10,
             keepalives_count=5
         )
-        print(f"Conexión exitosa!")
+        print("Conexión exitosa!")
         return conn
     except Exception as e:
         print(f"Error al conectar a la base de datos: {str(e)}")
         raise
-    return conn
-
-def ensure_user_row(conn, assigned_to):
-    try:
-        with conn.cursor() as cur:
-            cur.execute("INSERT INTO users (assigned_to) VALUES (%s) ON CONFLICT DO NOTHING", (assigned_to,))
-            conn.commit()
-    except Exception as e:
-        print(f"Error al asegurar usuario en users: {str(e)}")
-
 
 def check_user_data_complete(conn, assigned_to):
     with conn.cursor() as cur:
-        cur.execute("SELECT age_range, meme_expertise, political_position FROM users WHERE assigned_to = %s", (assigned_to,))
+        cur.execute(
+            "SELECT age_range, meme_expertise, political_position FROM users WHERE assigned_to = %s",
+            (assigned_to,)
+        )
         row = cur.fetchone()
         return row and all(row)
-
 
 @app.on_event("startup")
 def create_users_table():
@@ -122,41 +95,82 @@ def create_users_table():
         conn.commit()
     conn.close()
 
-
 @app.on_event("startup")
 def validate_database_url():
     if DB_URL is None:
         raise Exception("DATABASE_URL no está configurada en las variables de entorno")
     print("DATABASE_URL validada correctamente.")
 
+# =========================
+# Middleware: crea cookie solo en "/"
+# =========================
+@app.middleware("http")
+async def ensure_assigned_to_only_at_root(request: Request, call_next):
+    need_seed = (
+        request.url.path == "/"
+        and not request.cookies.get("assigned_to")
+    )
+    new_val = f"user-{uuid.uuid4()}" if need_seed else None
 
+    response: Response = await call_next(request)
+
+    if need_seed:
+        response.set_cookie(
+            key="assigned_to",
+            value=new_val,
+            max_age=365*24*60*60,   # 1 año
+            httponly=True,
+            samesite="lax",
+            path="/",
+        )
+        # Insert directo en DB
+        try:
+            conn = get_db()
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO users (assigned_to) VALUES (%s) ON CONFLICT DO NOTHING",
+                    (new_val,)
+                )
+                conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Error al asegurar usuario en users: {str(e)}")
+
+    return response
+
+# =========================
+# Rutas
+# =========================
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request, response: Response):
+def home(request: Request):
     conn = get_db()
-    assigned_to = request.cookies.get("assigned_to")
-    if not assigned_to:
-        assigned_to = f"user-{uuid.uuid4()}"
-        response.set_cookie(key="assigned_to", value=assigned_to, httponly=False, samesite="lax")
-        ensure_user_row(conn, assigned_to)
-    user_data_complete = check_user_data_complete(conn, assigned_to)
+    assigned_to = request.cookies.get("assigned_to")  # puede ser None en la primera visita
+    if assigned_to:
+        user_data_complete = check_user_data_complete(conn, assigned_to)
+        next_path = "/task" if user_data_complete else "/intro"
+    else:
+        # la cookie se setea al salir (middleware) en esta misma respuesta
+        next_path = "/intro"
     conn.close()
-    next_path = "/task" if user_data_complete else "/intro"
     return templates.TemplateResponse("index.html", {"request": request, "next_path": next_path})
 
-
 @app.get("/intro", response_class=HTMLResponse)
-def intro_form(request: Request, response: Response):
+def intro_form(request: Request):
+    assigned_to = request.cookies.get("assigned_to")
     conn = get_db()
-    assigned_to = get_or_create_persistent_user_id(request, response, conn)
-    user_data_complete = check_user_data_complete(conn, assigned_to)
+    user_data_complete = check_user_data_complete(conn, assigned_to) if assigned_to else False
     conn.close()
     if user_data_complete:
         return RedirectResponse(url="/task", status_code=303)
     return templates.TemplateResponse("intro.html", {"request": request})
 
-
 @app.post("/submit_intro")
-def submit_intro(request: Request, response: Response, age_range: str = Form(...), meme_expertise: str = Form(...), political_position: str = Form(...)):
+def submit_intro(
+    request: Request,
+    age_range: int = Form(...),
+    meme_expertise: int = Form(...),
+    political_position: int = Form(...)
+):
     assigned_to = request.cookies.get("assigned_to")
     conn = get_db()
     with conn.cursor() as cur:
@@ -168,38 +182,37 @@ def submit_intro(request: Request, response: Response, age_range: str = Form(...
     conn.close()
     return RedirectResponse(url="/task", status_code=303)
 
-
 @app.get("/task", response_class=HTMLResponse)
 def task(request: Request):
-    conn = get_db()
     assigned_to = request.cookies.get("assigned_to")
+    conn = get_db()
     data = assign_one_random(conn, assigned_to)
     conn.close()
     if not data:
         return RedirectResponse(url="/done", status_code=303)
     return templates.TemplateResponse("task.html", {"request": request, "id": data["id"], "url": data["url"]})
 
-
 @app.post("/submit")
-def submit(request: Request, image_id: str = Form(...), is_meme: int = Form(...), has_hate: Optional[int] = Form(None)):
-    conn = get_db()
+def submit(
+    request: Request,
+    image_id: str = Form(...),
+    is_meme: int = Form(...),
+    has_hate: Optional[int] = Form(None)
+):
     assigned_to = request.cookies.get("assigned_to")
-    if not assigned_to:
-        return RedirectResponse(url="/", status_code=303)
+    conn = get_db()
     with conn.cursor() as cur:
         cur.execute(
             "UPDATE images SET labeled=1, label_meme=%s, label_hate=%s, assigned_to=%s, submitted_at=%s WHERE id=%s",
-            [is_meme, has_hate, assigned_to, datetime.utcnow(), image_id]
+            (is_meme, has_hate, assigned_to, datetime.utcnow(), image_id)
         )
         conn.commit()
     conn.close()
     return RedirectResponse(url="/task", status_code=303)
 
-
 @app.get("/done", response_class=HTMLResponse)
 def done(request: Request):
     return templates.TemplateResponse("done.html", {"request": request, "message": "No hay más imágenes disponibles para etiquetar."})
-
 
 @app.get("/export.csv")
 def export_csv():
@@ -215,7 +228,6 @@ def export_csv():
             yield ",".join("" if v is None else str(v) for v in r) + "\n"
     return StreamingResponse(gen(), media_type="text/csv")
 
-
 @app.get("/export_labeled.csv")
 def export_labeled_csv():
     conn = get_db()
@@ -230,7 +242,6 @@ def export_labeled_csv():
             yield ",".join("" if v is None else str(v) for v in r) + "\n"
     return StreamingResponse(gen(), media_type="text/csv")
 
-
 @app.post("/admin/release_stale")
 def release_stale():
     conn = get_db()
@@ -240,7 +251,6 @@ def release_stale():
         conn.commit()
     conn.close()
     return {"released": released}
-
 
 @app.get("/admin", response_class=HTMLResponse)
 def admin(request: Request):
@@ -265,22 +275,21 @@ def admin(request: Request):
                     <tr><th>No asignadas</th><td>{total - assigned}</td></tr>
                 </table>
                 <p>{WORKERS_NOTE}</p>
-                        <h3 style='margin-top:24px'>Liberar asignaciones viejas</h3>
-                        <form onsubmit="event.preventDefault();
-                            fetch('/admin/release_stale', {{method:'POST'}})
-                                .then(r=>r.json())
-                                .then(d=>{{ alert('Liberadas: ' + d.released); location.reload(); }})
-                                .catch(()=>alert('Error liberando'));
-                        " style='margin-top:8px'>
-                            <label>Re-liberar todas las imágenes asignadas y no etiquetadas</label>
-                            <button class='btn' type='submit' style='margin-left:12px'>Liberar</button>
-                        </form>
+                <h3 style='margin-top:24px'>Liberar asignaciones viejas</h3>
+                <form onsubmit="event.preventDefault();
+                    fetch('/admin/release_stale', {{method:'POST'}})
+                        .then(r=>r.json())
+                        .then(d=>{{ alert('Liberadas: ' + d.released); location.reload(); }})
+                        .catch(()=>alert('Error liberando'));
+                " style='margin-top:8px'>
+                    <label>Re-liberar todas las imágenes asignadas y no etiquetadas</label>
+                    <button class='btn' type='submit' style='margin-left:12px'>Liberar</button>
+                </form>
             </div>
         </div>
         </body></html>
         """
     return HTMLResponse(html)
-
 
 @app.get("/img/{image_id}")
 def get_image(image_id: str):
@@ -297,7 +306,4 @@ def get_image(image_id: str):
         if r.status_code != 200:
             raise HTTPException(status_code=502, detail=f"Error al cargar la imagen: {r.status_code}")
         ct = r.headers.get("content-type", "image/jpeg")
-        return Response(content=r.content, media_type=ct)
-    except httpx.RequestError as e:
-        print(f"Error al cargar la imagen desde la URL: {e}")
-        raise HTTPException(status_code=502, detail="Error al cargar la imagen")
+        return Response(content=r.content, media_type=ct
