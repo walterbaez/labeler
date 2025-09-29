@@ -140,12 +140,17 @@ def validate_database_url():
 async def ensure_assigned_to_only_at_root(request: Request, call_next):
     has_cookie = bool(request.cookies.get("assigned_to"))
     need_seed = (request.url.path == "/" and not has_cookie)
-    print(f"[mw] path={request.url.path} has_cookie={has_cookie} need_seed={need_seed}")
 
-    new_val = f"user-{uuid.uuid4()}" if need_seed else None
+    # opcional: solo para navegadores
+    is_html_get = (
+        request.method == "GET" and
+        "text/html" in (request.headers.get("accept") or "")
+    )
+
     response: Response = await call_next(request)
 
-    if need_seed:
+    if need_seed and is_html_get:
+        new_val = f"user-{uuid.uuid4()}"
         print(f"[mw] seteando cookie assigned_to={new_val}")
         response.set_cookie(
             key="assigned_to",
@@ -155,20 +160,7 @@ async def ensure_assigned_to_only_at_root(request: Request, call_next):
             samesite="lax",
             path="/",
         )
-        try:
-            conn = get_db()
-            with conn.cursor() as cur:
-                cur.execute(
-                    "INSERT INTO users (assigned_to) VALUES (%s) ON CONFLICT DO NOTHING",
-                    (new_val,)
-                )
-                print(f"[mw] INSERT users rowcount={cur.rowcount} (0 o 1 es normal)")
-                conn.commit()
-            conn.close()
-        except Exception as e:
-            print("[mw][ERROR] al insertar user:", repr(e))
-            traceback.print_exc()
-
+        
     return response
 # =========================
 # Rutas
