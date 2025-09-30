@@ -22,37 +22,76 @@ p.instructions, ol.instructions { font-size: 1.25em; line-height: 1.6; color: #E
 .question { margin: 18px 0; }
 .question > label { display:block; margin-bottom:8px; font-weight:600; color: #EEEEEE; }
 
-/* Grilla 1–7 */
+/* Scale layout: normally 3 columns, but when last row has 2 items
+   the two appear 50% each (handled via nth-last-child + nth-child selectors) */
 .scale {
-	display: grid;
-	grid-template-columns: repeat(7, minmax(0, 1fr));
+	display: flex;
+	flex-wrap: wrap;
 	gap: 12px;
-	align-items: center;
-	justify-items: center;
+	align-items: stretch;
 }
 
-/* Cada opción: radio grande y número debajo (clickeable) */
+/* Base: three columns (approx 33.333%) */
 .scale-option {
+	flex: 0 0 33.333333%;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	gap: 6px;
-	min-width: 36px;
+	min-width: 0;
 	background-color: #1E1E1E;
 	color: #EEEEEE;
-	border: 1px solid #EEEEEE;
-	border-radius: 5px;
+	border: 1px solid rgba(238,238,238,0.12);
+	border-radius: 8px;
 	padding: 10px;
-	margin: 5px;
+	margin: 0; /* spacing via gap on .scale */
 	text-align: center;
 	cursor: pointer;
-	transition: background-color 0.3s, color 0.3s;
+	transition: background-color 160ms ease, border-color 160ms ease, transform 120ms ease;
 }
+
+/* If the last row contains exactly two items, make them 50% each.
+   The combined :nth-last-child / :nth-child conditions detect that case. */
+.scale-option:nth-last-child(2):nth-child(3n+1),
+.scale-option:nth-last-child(1):nth-child(3n+2) {
+	flex-basis: 50%;
+}
+
+/* Hide native radio visually but keep it accessible */
 .scale-option input[type="radio"] {
-	width: 28px; height: 28px;
-	accent-color: #111;
-	font-size: 16px;
-	display: none;
+	position: absolute;
+	opacity: 0;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	border: 0;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+}
+
+/* Make the entire label clickable (label.wrap assumed) - using pointer events on label itself */
+.scale-option { position: relative; }
+
+/* Selected state: when the radio is checked, style the category-label */
+.scale-option input[type="radio"]:checked + .category-label {
+	border: 2px solid #00ff99;
+	background: rgba(0,255,153,0.08);
+	box-shadow: 0 6px 18px rgba(0,0,0,0.18) inset;
+}
+
+/* Hover / focus on option */
+.scale-option:hover,
+.scale-option:focus-within {
+	transform: translateY(-2px);
+	border-color: rgba(0,255,153,0.45);
+}
+
+/* Category label area styles */
+.category-label {
+	width: 100%;
+	padding: 6px 8px;
+	border-radius: 6px;
 }
 
 /* Leyenda con extremos y centro */
@@ -123,3 +162,48 @@ table { width:100%; border-collapse: collapse; margin-top: 16px; }
 th, td { text-align:left; padding: 8px; border-bottom: 1px solid #eee; }
 th { background:#fafafa; }
 .progress { margin-top: 16px; }
+
+/* ---------- Custom pills and link styles for dark theme ---------- */
+/* Pills for subtitles wrapped in <strong> */
+p strong,
+li strong,
+div strong {
+	display: inline-block;
+	background: #25D366; /* WhatsApp green */
+	color: #000;         /* black text for contrast */
+	padding: 6px 10px;
+	border-radius: 6px; /* subtle rounding, rectangular highlight */
+	font-weight: 700;
+	font-size: 0.95em;
+	line-height: 1;
+	margin: 0 0 6px 0;
+	box-shadow: inset 0 -6px 12px rgba(0,0,0,0.06); /* subtle inner shading */
+}
+
+/* If you want to mark a strong explicitly as block highlight, add .block-pill */
+strong.block-pill { display: inline-block; margin-top: 8px; }
+
+/* Link color and hover behavior */
+a {
+	color: #00ff99;
+	text-decoration: underline;
+	transition: background-color 150ms ease, color 150ms ease, text-decoration 150ms;
+	border-radius: 6px;
+	padding: 2px 4px;
+}
+
+
+a:hover,
+a:focus {
+	color: #1aa34a; /* slightly darker WhatsApp-like green */
+	text-decoration: none;
+	background-color: rgba(37,211,102,0.12); /* soft translucent whatsapp green */
+	outline: none;
+}
+
+/* Focus outline for keyboard users */
+a:focus { box-shadow: 0 0 0 3px rgba(0, 255, 153, 0.12); }
+
+/* Ensure the main container contrasts well with dark background */
+.container { background: rgba(255,255,255,0.03); }
+

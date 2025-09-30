@@ -1,11 +1,10 @@
 import httpx
 from fastapi import HTTPException
-from datetime import timedelta
+
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, PlainTextResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-import re
 import os
 import uuid
 import psycopg
@@ -16,7 +15,6 @@ import traceback
 
 DB_URL = os.environ.get("DATABASE_URL")
 ASSIGN_RETRIES = 5  # reintentos ante carrera
-REQUIRE_TOKEN = os.environ.get("REQUIRE_TOKEN", "")  # si lo definís, exige ?token=...
 WORKERS_NOTE = "Con SQLite, corré con un solo proceso: uvicorn app:app --workers 1"
 
 app = FastAPI(title="Image Labeler", version="1.0")
@@ -51,7 +49,7 @@ def assign_one_random(conn, assigned_to: str):
                 conn.rollback()
 
         except Exception as e:
-            
+            print(f"[assign][ERROR] attempt {attempt}: {type(e).__name__}: {e}")
             traceback.print_exc()
             try:
                 conn.rollback()
