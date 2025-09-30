@@ -53,11 +53,8 @@ p, ol, ul {
   align-items: stretch;
 }
 
-/* Evitar saltos raros en "3 = Ambiguo" etc. dentro de instrucciones */
-.instructions span,
-.instructions strong {
-  white-space: nowrap;
-}
+/* Evitar cortes de línea en frases cortas tipo "3 = Ambiguo" */
+.nowrap { white-space: nowrap; }
 
 
 /* Base: tres columnas (calculadas con gap para que cierre justo) */
