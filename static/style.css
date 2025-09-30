@@ -10,149 +10,152 @@ p.instructions, ol.instructions { font-size: 1.25em; line-height: 1.6; color: #E
 /* Imagen responsive, que no desborde */
 .image-box { margin: 10px 0 18px; }
 .image-box img {
-	display:block;
-	width:100%;
-	max-height: 45vh;
-	object-fit: contain;
-	border-radius: 12px;
-	background:#f4f4f4;
+  display:block;
+  width:100%;
+  max-height: 45vh;
+  object-fit: contain;
+  border-radius: 12px;
+  background:#f4f4f4;
 }
 
 /* Bloques de pregunta */
 .question { margin: 18px 0; }
 .question > label { display:block; margin-bottom:8px; font-weight:600; color: #EEEEEE; }
 
-/* Scale layout: normally 3 columns, but when last row has 2 items
-   the two appear 50% each (handled via nth-last-child + nth-child selectors) */
+/* ---------- Scale: 3 columnas; si la última fila tiene 2, van 50/50 ---------- */
 .scale {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 12px;
-	align-items: stretch;
+  --gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap);
+  align-items: stretch;
 }
 
-/* Base: three columns (approx 33.333%) */
+/* Base: tres columnas (calculadas con gap para que cierre justo) */
 .scale-option {
-	flex: 0 0 33.333333%;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 6px;
-	min-width: 0;
-	background-color: #1E1E1E;
-	color: #EEEEEE;
-	border: 1px solid rgba(238,238,238,0.12);
-	border-radius: 8px;
-	padding: 10px;
-	margin: 0; /* spacing via gap on .scale */
-	text-align: center;
-	cursor: pointer;
-	transition: background-color 160ms ease, border-color 160ms ease, transform 120ms ease;
+  box-sizing: border-box;
+  flex: 0 0 calc((100% - 2*var(--gap)) / 3);
+  max-width: calc((100% - 2*var(--gap)) / 3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  background-color: #1E1E1E;
+  color: #EEEEEE;
+  border: 1px solid rgba(238,238,238,0.12);
+  border-radius: 8px;
+  padding: 10px;
+  margin: 0; /* spacing via gap on .scale */
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 120ms ease;
+  position: relative; /* para el input invisible */
 }
 
-/* If the last row contains exactly two items, make them 50% each.
-   The combined :nth-last-child / :nth-child conditions detect that case. */
+/* Caso “3+2”: si la última fila queda con 2, que ocupen 50% cada una */
 .scale-option:nth-last-child(2):nth-child(3n+1),
-.scale-option:nth-last-child(1):nth-child(3n+2) {
-	flex-basis: 50%;
+.scale-option:last-child:nth-child(3n+2) {
+  flex-basis: calc((100% - var(--gap)) / 2);
+  max-width:  calc((100% - var(--gap)) / 2);
 }
 
 /* Hide native radio visually but keep it accessible */
 .scale-option input[type="radio"] {
-	position: absolute;
-	opacity: 0;
-	width: 1px;
-	height: 1px;
-	margin: -1px;
-	padding: 0;
-	border: 0;
-	clip: rect(0 0 0 0);
-	white-space: nowrap;
+  position: absolute;
+  opacity: 0;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
-/* Make the entire label clickable (label.wrap assumed) - using pointer events on label itself */
-.scale-option { position: relative; }
-
-/* Selected state: when the radio is checked, style the category-label */
+/* Selected state */
 .scale-option input[type="radio"]:checked + .category-label {
-	border: 2px solid #00ff99;
-	background: rgba(0,255,153,0.08);
-	box-shadow: 0 6px 18px rgba(0,0,0,0.18) inset;
+  border: 2px solid #00ff99;
+  background: rgba(0,255,153,0.08);
+  box-shadow: inset 0 6px 18px rgba(0,0,0,0.18);
 }
 
-/* Hover / focus on option */
+/* Hover / focus */
 .scale-option:hover,
 .scale-option:focus-within {
-	transform: translateY(-2px);
-	border-color: rgba(0,255,153,0.45);
+  transform: translateY(-2px);
+  border-color: rgba(0,255,153,0.45);
 }
 
 /* Category label area styles */
 .category-label {
-	width: 100%;
-	padding: 6px 8px;
-	border-radius: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  line-height: 1.2;
+  word-wrap: break-word;
+  white-space: normal;
 }
 
 /* Leyenda con extremos y centro */
 .scale-legend {
-	display:flex;
-	justify-content: space-between;
-	align-items:center;
-	font-size: 0.92em;
-	margin: 6px 2px 0;
-	color: #EEEEEE;
+  display:flex;
+  justify-content: space-between;
+  align-items:center;
+  font-size: 0.92em;
+  margin: 6px 2px 0;
+  color: #EEEEEE;
 }
 .scale-legend span.center { text-align:center; flex:0 0 auto; }
 .scale-legend span { white-space: nowrap; }
 
-/* Botones */
+/* ---------- Botones ---------- */
 .btn{
-	padding: 10px 14px;
-	border: 1px solid #EEEEEE;
-	border-radius: 5px;
-	background:#1E1E1E; color:#EEEEEE; font-weight:600;
-	text-align: center;
-	cursor: pointer;
-	transition: background-color 0.3s, color 0.3s;
+  display:inline-block;
+  width: 100%;               /* full width en móvil */
+  padding: 12px 16px;
+  border: 1px solid #EEEEEE;
+  border-radius: 12px;
+  background:#111; color:#fff; font-weight:600;
+  text-align: center;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.3s, color 0.3s;
 }
 .btn:hover {
-	background-color: #EEEEEE;
-	color: #121212;
+  background-color: #EEEEEE;
+  color: #121212;
 }
-.btn + .btn { margin-left: 10px; }
+/* Espacio vertical claro entre botones apilados */
+.btn + .btn { 
+  margin-top: 14px; 
+  margin-left: 0; 
+}
 
-/* Ajustes móviles */
+/* ---------- Ajustes móviles ---------- */
 @media (max-width: 480px){
-	.container{ padding: 12px; }
-	.image-box img{ max-height: 38vh; }
-	.scale{ gap:10px; }
-	.scale-option input[type="radio"]{ width:26px; height:26px; }
-	.scale-legend{ font-size:0.85em; }
+  .container{ padding: 12px; }
+  .image-box img{ max-height: 38vh; }
+  .scale{ gap:10px; }
+  .scale-option input[type="radio"]{ width:26px; height:26px; }
+  .scale-legend{ font-size:0.85em; }
 }
+
+/* Pantallas MUY angostas: 2 por fila para evitar texto aplastado */
+@media (max-width: 360px){
+  .scale-option{
+    flex-basis: calc((100% - var(--gap)) / 2);
+    max-width:  calc((100% - var(--gap)) / 2);
+    padding: 8px;
+  }
+}
+
+/* Puedes mantener padding del container y btn ancho en 768,
+   pero NO toques .scale ni .scale-option aquí */
 @media (max-width: 768px) {
-    .container {
-        padding: 15px;
-    }
-
-    .scale {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-    }
-
-    .scale-option {
-        flex: 1;
-        min-width: 100px;
-        padding: 8px;
-    }
-
-    .btn {
-        width: 100%;
-        padding: 12px;
-    }
+  .container { padding: 15px; }
+  .btn { width: 100%; padding: 12px; }
 }
+
 p,ol { line-height: 1.5; }
-.btn { display:inline-block; padding:12px 16px; border-radius:12px; text-decoration:none; background:#111; color:#fff; }
+
 .image-box { display:flex; align-items:center; justify-content:center; margin: 16px 0 24px; }
 .image-box img { max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 2px 18px rgba(0,0,0,.12); }
 .question { margin: 16px 0; }
@@ -163,47 +166,40 @@ th, td { text-align:left; padding: 8px; border-bottom: 1px solid #eee; }
 th { background:#fafafa; }
 .progress { margin-top: 16px; }
 
-/* ---------- Custom pills and link styles for dark theme ---------- */
-/* Pills for subtitles wrapped in <strong> */
+/* ---------- Pastillas y links (tema oscuro) ---------- */
 p strong,
 li strong,
 div strong {
-	display: inline-block;
-	background: #25D366; /* WhatsApp green */
-	color: #000;         /* black text for contrast */
-	padding: 6px 10px;
-	border-radius: 6px; /* subtle rounding, rectangular highlight */
-	font-weight: 700;
-	font-size: 0.95em;
-	line-height: 1;
-	margin: 0 0 6px 0;
-	box-shadow: inset 0 -6px 12px rgba(0,0,0,0.06); /* subtle inner shading */
+  display: inline-block;
+  background: #25D366; /* verde claro */
+  color: #000;         /* alto contraste */
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.95em;
+  line-height: 1;
+  margin: 0 0 6px 0;
+  box-shadow: inset 0 -6px 12px rgba(0,0,0,0.06);
 }
-
-/* If you want to mark a strong explicitly as block highlight, add .block-pill */
 strong.block-pill { display: inline-block; margin-top: 8px; }
 
-/* Link color and hover behavior */
+/* Link color y hover */
 a {
-	color: #00ff99;
-	text-decoration: underline;
-	transition: background-color 150ms ease, color 150ms ease, text-decoration 150ms;
-	border-radius: 6px;
-	padding: 2px 4px;
+  color: #00ff99;
+  text-decoration: underline;
+  transition: background-color 150ms ease, color 150ms ease, text-decoration 150ms;
+  border-radius: 6px;
+  padding: 2px 4px;
 }
-
-
 a:hover,
 a:focus {
-	color: #1aa34a; /* slightly darker WhatsApp-like green */
-	text-decoration: none;
-	background-color: rgba(37,211,102,0.12); /* soft translucent whatsapp green */
-	outline: none;
+  color: #1aa34a; /* verde más oscuro */
+  text-decoration: none;
+  background-color: rgba(37,211,102,0.12);
+  outline: none;
 }
-
-/* Focus outline for keyboard users */
+/* Focus accesible */
 a:focus { box-shadow: 0 0 0 3px rgba(0, 255, 153, 0.12); }
 
-/* Ensure the main container contrasts well with dark background */
+/* Contraste del contenedor principal */
 .container { background: rgba(255,255,255,0.03); }
-
