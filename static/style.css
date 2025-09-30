@@ -53,6 +53,13 @@ p, ol, ul {
   align-items: stretch;
 }
 
+/* Evitar saltos raros en "3 = Ambiguo" etc. dentro de instrucciones */
+.instructions span,
+.instructions strong {
+  white-space: nowrap;
+}
+
+
 /* Base: tres columnas (calculadas con gap para que cierre justo) */
 .scale-option {
   box-sizing: border-box;
