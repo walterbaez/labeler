@@ -22,29 +22,68 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 def assign_one_random(conn, assigned_to: str):
-   
+
     for attempt in range(1, ASSIGN_RETRIES + 1):
         try:
             with conn.cursor() as cur:
-               
+                # Buscar imagen disponible para slot 2 o 3
+                # que el usuario no haya etiquetado antes
                 cur.execute(
-                    "SELECT id, url FROM images WHERE assigned_at IS NULL AND labeled=0 ORDER BY RANDOM() LIMIT 1"
+                    """
+                    SELECT id FROM images
+                    WHERE annotations_count < 3
+                    AND annotator_2 != %s OR annotator_2 IS NULL
+                    AND label_meme_1 IS NOT NULL
+                    AND (
+                        (annotations_count = 1 AND assigned_at_2 IS NULL)
+                        OR
+                        (annotations_count = 2 AND assigned_at_3 IS NULL)
+                    )
+                    AND id != ALL(
+                        SELECT id FROM images WHERE annotator_2 = %s OR annotator_3 = %s
+                    )
+                    ORDER BY RANDOM()
+                    LIMIT 1
+                    """,
+                    [assigned_to, assigned_to, assigned_to]
                 )
                 row = cur.fetchone()
-              
+
                 if not row:
                     conn.rollback()
                     return None
-                img_id, url = row
+
+                img_id = row[0]
+
+                # Determinar qué slot asignar
                 cur.execute(
-                    "UPDATE images SET assigned_to=%s, assigned_at=%s WHERE id=%s AND assigned_at IS NULL RETURNING id",
-                    [assigned_to, datetime.utcnow(), img_id],
+                    "SELECT annotations_count, assigned_at_2, assigned_at_3 FROM images WHERE id = %s",
+                    [img_id]
                 )
+                img = cur.fetchone()
+                count, at2, at3 = img
+
+                if count == 1 and at2 is None:
+                    cur.execute(
+                        "UPDATE images SET annotator_2=%s, assigned_at_2=%s WHERE id=%s AND assigned_at_2 IS NULL RETURNING id",
+                        [assigned_to, datetime.utcnow(), img_id]
+                    )
+                elif count == 2 and at3 is None:
+                    cur.execute(
+                        "UPDATE images SET annotator_3=%s, assigned_at_3=%s WHERE id=%s AND assigned_at_3 IS NULL RETURNING id",
+                        [assigned_to, datetime.utcnow(), img_id]
+                    )
+                else:
+                    conn.rollback()
+                    continue
+
                 updated = cur.fetchone()
-              
+
                 if updated:
                     conn.commit()
-                    
+                    # Obtener URL para mostrar
+                    cur.execute("SELECT url FROM images WHERE id=%s", [img_id])
+                    url = cur.fetchone()[0]
                     return {"id": img_id, "url": url}
                 conn.rollback()
 
@@ -246,10 +285,34 @@ def submit(
     assigned_to = request.cookies.get("assigned_to")
     conn = get_db()
     with conn.cursor() as cur:
+        # Determinar qué slot completar
         cur.execute(
-            "UPDATE images SET labeled=1, label_meme=%s, label_hate=%s, assigned_to=%s, submitted_at=%s WHERE id=%s",
-            (is_meme, has_hate, assigned_to, datetime.utcnow(), image_id)
+            "SELECT annotator_2, annotator_3, annotations_count FROM images WHERE id=%s",
+            [image_id]
         )
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Imagen no encontrada")
+        
+        annotator_2, annotator_3, count = row
+
+        if annotator_2 == assigned_to:
+            cur.execute(
+                """UPDATE images SET 
+                    label_meme_2=%s, label_hate_2=%s, submitted_at_2=%s,
+                    annotations_count = annotations_count + 1
+                WHERE id=%s""",
+                (is_meme, has_hate, datetime.utcnow(), image_id)
+            )
+        elif annotator_3 == assigned_to:
+            cur.execute(
+                """UPDATE images SET 
+                    label_meme_3=%s, label_hate_3=%s, submitted_at_3=%s,
+                    annotations_count = annotations_count + 1
+                WHERE id=%s""",
+                (is_meme, has_hate, datetime.utcnow(), image_id)
+            )
         conn.commit()
     conn.close()
     return RedirectResponse(url="/task", status_code=303)
@@ -290,11 +353,23 @@ def export_labeled_csv():
 def release_stale():
     conn = get_db()
     with conn.cursor() as cur:
-        cur.execute("UPDATE images SET assigned_at=NULL, assigned_to=NULL WHERE labeled=0 AND assigned_to IS NOT NULL")
-        released = cur.rowcount
+        # Liberar slot 2 asignado pero no completado
+        cur.execute(
+            """UPDATE images SET annotator_2=NULL, assigned_at_2=NULL
+            WHERE assigned_at_2 IS NOT NULL AND submitted_at_2 IS NULL"""
+        )
+        released_2 = cur.rowcount
+
+        # Liberar slot 3 asignado pero no completado
+        cur.execute(
+            """UPDATE images SET annotator_3=NULL, assigned_at_3=NULL
+            WHERE assigned_at_3 IS NOT NULL AND submitted_at_3 IS NULL"""
+        )
+        released_3 = cur.rowcount
+
         conn.commit()
     conn.close()
-    return {"released": released}
+    return {"released_slot_2": released_2, "released_slot_3": released_3}
 
 @app.get("/admin", response_class=HTMLResponse)
 def admin(request: Request):
@@ -302,32 +377,38 @@ def admin(request: Request):
     with conn.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM images")
         total = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM images WHERE labeled=1")
-        labeled = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM images WHERE assigned_at IS NOT NULL")
-        assigned = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM images WHERE annotations_count = 3")
+        completas = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM images WHERE annotations_count = 2")
+        dos_anotaciones = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM images WHERE annotations_count = 1")
+        una_anotacion = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM images WHERE assigned_at_2 IS NOT NULL AND submitted_at_2 IS NULL")
+        asignadas_2 = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM images WHERE assigned_at_3 IS NOT NULL AND submitted_at_3 IS NULL")
+        asignadas_3 = cur.fetchone()[0]
     conn.close()
     html = f"""
         <html><head><link rel='stylesheet' href='/static/style.css'></head><body>
         <div class='container'>
-            <h2>Progreso</h2>
+            <h2>Progreso Inter-Anotador</h2>
             <div class='progress'>
                 <table>
-                    <tr><th>Total</th><td>{total}</td></tr>
-                    <tr><th>Etiquetadas</th><td>{labeled}</td></tr>
-                    <tr><th>Asignadas (en curso)</th><td>{assigned}</td></tr>
-                    <tr><th>No asignadas</th><td>{total - assigned}</td></tr>
+                    <tr><th>Total imágenes</th><td>{total}</td></tr>
+                    <tr><th>3 anotaciones (completas)</th><td>{completas}</td></tr>
+                    <tr><th>2 anotaciones</th><td>{dos_anotaciones}</td></tr>
+                    <tr><th>1 anotación (original)</th><td>{una_anotacion}</td></tr>
+                    <tr><th>Asignadas slot 2 sin completar</th><td>{asignadas_2}</td></tr>
+                    <tr><th>Asignadas slot 3 sin completar</th><td>{asignadas_3}</td></tr>
                 </table>
-                <p>{WORKERS_NOTE}</p>
-                <h3 style='margin-top:24px'>Liberar asignaciones viejas</h3>
+                <h3 style='margin-top:24px'>Liberar asignaciones sin completar</h3>
                 <form onsubmit="event.preventDefault();
                     fetch('/admin/release_stale', {{method:'POST'}})
                         .then(r=>r.json())
-                        .then(d=>{{ alert('Liberadas: ' + d.released); location.reload(); }})
+                        .then(d=>{{ alert('Liberadas slot 2: ' + d.released_slot_2 + ' | slot 3: ' + d.released_slot_3); location.reload(); }})
                         .catch(()=>alert('Error liberando'));
                 " style='margin-top:8px'>
-                    <label>Re-liberar todas las imágenes asignadas y no etiquetadas</label>
-                    <button class='btn' type='submit' style='margin-left:12px'>Liberar</button>
+                    <button class='btn' type='submit'>Liberar asignaciones</button>
                 </form>
             </div>
         </div>
